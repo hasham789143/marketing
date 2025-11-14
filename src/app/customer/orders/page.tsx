@@ -13,6 +13,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableFooter,
 } from '@/components/ui/table';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { Order } from '@/lib/data';
@@ -47,6 +48,8 @@ export default function CustomerOrdersPage() {
 
   const { data: orders, isLoading } = useCollection<Order>(ordersRef);
 
+  const grandTotal = orders?.reduce((acc, order) => acc + order.total, 0) ?? 0;
+
   const getStatusVariant = (status: Order['status']) => {
     switch (status) {
       case 'Pending':
@@ -71,7 +74,7 @@ export default function CustomerOrdersPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>My Orders</CardTitle>
+        <CardTitle>My Bills</CardTitle>
         <CardDescription>A list of all your past orders. Click an order to see details.</CardDescription>
       </CardHeader>
       <CardContent>
@@ -88,7 +91,7 @@ export default function CustomerOrdersPage() {
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={4} className="text-center">
-                  Loading your orders...
+                  Loading your bills...
                 </TableCell>
               </TableRow>
             )}
@@ -111,6 +114,12 @@ export default function CustomerOrdersPage() {
                 </TableRow>
               ))}
           </TableBody>
+          <TableFooter>
+            <TableRow>
+              <TableCell colSpan={3} className="text-right font-bold">Grand Total</TableCell>
+              <TableCell className="text-right font-bold">PKR {grandTotal.toLocaleString()}</TableCell>
+            </TableRow>
+          </TableFooter>
         </Table>
       </CardContent>
     </Card>
