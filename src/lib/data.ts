@@ -1,3 +1,9 @@
+export type ProductVariant = {
+  sku: string;
+  price: number;
+  stockQty: number;
+};
+
 export type Product = {
   id: string;
   name: string;
@@ -9,6 +15,7 @@ export type Product = {
   description?: string;
   images?: string[];
   stockQty?: number;
+  variants?: ProductVariant[];
 };
 
 export type Order = {

@@ -49,13 +49,26 @@ export default function CustomerProductsPage() {
         });
         return;
     }
+    // With variants, we should add a specific variant to the cart.
+    // For now, let's assume we're adding the first variant.
+    const variantToAdd = product.variants?.[0];
+    if (!variantToAdd) {
+        toast({
+            variant: "destructive",
+            title: "Product Unavailable",
+            description: "This product has no purchasable options.",
+        });
+        return;
+    }
+
     try {
       const cartRef = collection(firestore, `users/${user.uid}/cart`);
       await addDoc(cartRef, {
         productId: product.id,
         name: product.name,
-        price: product.price,
+        price: variantToAdd.price,
         quantity: 1,
+        sku: variantToAdd.sku,
         imageUrlId: product.imageUrlId,
       });
 
@@ -90,7 +103,11 @@ export default function CustomerProductsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {!isLoading && products?.map((product) => {
             const image = PlaceHolderImages.find(p => p.id === product.imageUrlId);
-            const stock = product.stockQty ?? product.stock; // Handle both property names
+            // Since price and stock are per-variant, we'll display the first variant's info.
+            const displayVariant = product.variants?.[0];
+            const price = displayVariant?.price ?? 0;
+            const stock = displayVariant?.stockQty ?? 0;
+
             return (
               <Card key={product.id} className="flex flex-col">
                 <div className="relative w-full h-48">
@@ -117,7 +134,7 @@ export default function CustomerProductsPage() {
                 <CardContent className="p-4 pt-0 flex-grow flex flex-col justify-between">
                     <div>
                         <p className="font-semibold text-lg">
-                            PKR {product.price.toLocaleString()}
+                            PKR {price.toLocaleString()}
                         </p>
                         <p className="text-sm text-muted-foreground">
                             {stock > 0 ? `${stock} in stock` : 'Out of stock'}
