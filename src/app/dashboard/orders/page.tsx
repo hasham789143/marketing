@@ -32,7 +32,7 @@ import { collection, doc, query, updateDoc, where } from 'firebase/firestore';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 
 interface UserData {
@@ -144,6 +144,19 @@ export default function OrdersPage() {
         });
     }
   };
+  
+  const { totalPaid, totalUnpaid } = useMemo(() => {
+    if (!orders) return { totalPaid: 0, totalUnpaid: 0 };
+    return orders.reduce((acc, order) => {
+        if (order.paymentStatus === 'Paid') {
+            acc.totalPaid += order.total;
+        } else if (order.paymentStatus === 'Unpaid') {
+            acc.totalUnpaid += order.total;
+        }
+        return acc;
+    }, { totalPaid: 0, totalUnpaid: 0 });
+  }, [orders]);
+
 
   const isLoading = isUserDataLoading || areOrdersLoading;
   const isOwnerOrStaff = userData?.role === 'owner' || userData?.role === 'staff';
@@ -171,6 +184,18 @@ export default function OrdersPage() {
           {pageDescription}
           {customerId && <Link href="/dashboard/orders" className="underline ml-2">View all orders</Link>}
         </CardDescription>
+        {!customerId && !isLoading && orders && orders.length > 0 && (
+            <div className="flex gap-4 pt-2 text-sm">
+                <div className="flex items-center gap-2">
+                    <span className="font-medium text-foreground">Total Paid:</span>
+                    <span className="font-semibold text-green-600">PKR {totalPaid.toLocaleString()}</span>
+                </div>
+                 <div className="flex items-center gap-2">
+                    <span className="font-medium text-foreground">Total Unpaid:</span>
+                    <span className="font-semibold text-red-600">PKR {totalUnpaid.toLocaleString()}</span>
+                </div>
+            </div>
+        )}
       </CardHeader>
       <CardContent>
         <Table>
