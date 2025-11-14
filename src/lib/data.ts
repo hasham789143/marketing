@@ -20,7 +20,7 @@ export type Order = {
 export type Staff = {
   id: string;
   name: string;
-  role: 'Owner' | 'Manager' | 'Cashier' | 'Viewer';
+  role: 'Admin' | 'Owner' | 'Manager' | 'Cashier' | 'Viewer';
   avatarUrlId: string;
 };
 

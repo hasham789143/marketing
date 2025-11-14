@@ -66,7 +66,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
-      "description": "Represents a user of the platform (shop owner, staff, or customer).",
+      "description": "Represents a user of the platform (admin, shop owner, staff, or customer).",
       "properties": {
         "userId": {
           "type": "string",
@@ -87,11 +87,11 @@
         },
         "role": {
           "type": "string",
-          "description": "Role of the user (owner, staff, customer)."
+          "description": "Role of the user (admin, owner, staff, customer)."
         },
         "shopId": {
           "type": "string",
-          "description": "Reference to the Shop the user belongs to. Nullable for customers. (Relationship: Shop 1:N User)"
+          "description": "Reference to the Shop the user belongs to. Nullable for admins and customers. (Relationship: Shop 1:N User)"
         },
         "createdAt": {
           "type": "string",
