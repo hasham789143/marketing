@@ -14,6 +14,7 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { ShoppingCart } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface UserData {
   shopId?: string;
@@ -22,6 +23,7 @@ interface UserData {
 export default function CustomerProductsPage() {
   const firestore = useFirestore();
   const { user } = useUser();
+  const { toast } = useToast();
 
   const userDocRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -37,6 +39,15 @@ export default function CustomerProductsPage() {
   }, [firestore, shopId]);
 
   const { data: products, isLoading } = useCollection<Product>(productsRef);
+
+  const handleAddToCart = (product: Product) => {
+    // TODO: Implement actual cart logic (e.g., using context or state management)
+    toast({
+      title: 'Added to Cart',
+      description: `${product.name} has been added to your cart.`,
+    });
+    console.log('Added to cart:', product);
+  };
 
   return (
     <Card>
@@ -56,6 +67,7 @@ export default function CustomerProductsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {!isLoading && products?.map((product) => {
             const image = PlaceHolderImages.find(p => p.id === product.imageUrlId);
+            const stock = product.stockQty ?? product.stock; // Handle both property names
             return (
               <Card key={product.id} className="flex flex-col">
                 <div className="relative w-full h-48">
@@ -85,10 +97,14 @@ export default function CustomerProductsPage() {
                             PKR {product.price.toLocaleString()}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                            {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+                            {stock > 0 ? `${stock} in stock` : 'Out of stock'}
                         </p>
                     </div>
-                    <Button className="w-full mt-4" disabled={product.stock <= 0}>
+                    <Button 
+                      className="w-full mt-4" 
+                      disabled={stock <= 0}
+                      onClick={() => handleAddToCart(product)}
+                    >
                         <ShoppingCart className="mr-2 h-4 w-4" />
                         Add to Cart
                     </Button>
