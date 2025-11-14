@@ -25,8 +25,9 @@ import {
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, updateDoc, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { Label } from '@/components/ui/label';
 
 interface User {
   id: string;
@@ -36,9 +37,16 @@ interface User {
   shopId?: string;
 }
 
+interface Shop {
+    id: string;
+    shopName: string;
+}
+
 export default function UsersPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const shopId = searchParams.get('shopId');
 
@@ -50,7 +58,10 @@ export default function UsersPage() {
     return baseCollection;
   }, [firestore, shopId]);
   
-  const { data: users, isLoading } = useCollection<User>(usersRef);
+  const { data: users, isLoading: areUsersLoading } = useCollection<User>(usersRef);
+
+  const shopsRef = useMemoFirebase(() => collection(firestore, 'shops'), [firestore]);
+  const { data: shops, isLoading: areShopsLoading } = useCollection<Shop>(shopsRef);
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     const userDocRef = doc(firestore, 'users', userId);
@@ -69,6 +80,18 @@ export default function UsersPage() {
     }
   };
 
+  const handleShopFilterChange = (selectedShopId: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (selectedShopId === 'all') {
+        params.delete('shopId');
+    } else {
+        params.set('shopId', selectedShopId);
+    }
+    router.push(`${pathname}?${params.toString()}`);
+  };
+
+  const isLoading = areUsersLoading || areShopsLoading;
+
   return (
     <Card>
       <CardHeader>
@@ -78,6 +101,26 @@ export default function UsersPage() {
             ? <>Viewing users for shop: {shopId}. <Link href="/dashboard/users" className="underline">View all users</Link>.</>
             : "View and manage user roles across the platform."}
         </CardDescription>
+        <div className="pt-4">
+            <Label htmlFor="shop-filter">Filter by Shop</Label>
+            <Select
+                value={shopId || 'all'}
+                onValueChange={handleShopFilterChange}
+                disabled={areShopsLoading}
+            >
+                <SelectTrigger id="shop-filter" className="w-[280px]">
+                    <SelectValue placeholder="Select a shop to filter users" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">All Shops</SelectItem>
+                    {shops?.map(shop => (
+                        <SelectItem key={shop.id} value={shop.id}>
+                            {shop.shopName} ({shop.id})
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
