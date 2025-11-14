@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { doc } from 'firebase/firestore';
+import { SidebarMenuSkeleton } from '@/components/ui/sidebar';
 
 const baseNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -35,23 +36,42 @@ const bottomNavItems = [
 
 export function Nav() {
   const pathname = usePathname();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
 
   const userDocRef = useMemoFirebase(() => {
-    if (!user) return null;
+    if (!user || isUserLoading) return null;
     return doc(firestore, 'users', user.uid);
-  }, [user, firestore]);
+  }, [user, isUserLoading, firestore]);
 
-  const { data: userData } = useDoc<{ role: string }>(userDocRef);
+  const { data: userData, isLoading: isUserDataLoading } = useDoc<{ role: string }>(userDocRef);
+
+  const isLoading = isUserLoading || isUserDataLoading;
+
+  if (isLoading) {
+      return (
+          <SidebarMenu>
+              <SidebarMenuItem>
+                  <SidebarMenuSkeleton showIcon={true} />
+              </SidebarMenuItem>
+               <SidebarMenuItem>
+                  <SidebarMenuSkeleton showIcon={true} />
+              </SidebarMenuItem>
+               <SidebarMenuItem>
+                  <SidebarMenuSkeleton showIcon={true} />
+              </SidebarMenuItem>
+          </SidebarMenu>
+      )
+  }
 
   const isAdmin = userData?.role === 'admin';
 
-  const navItems = isAdmin ? [...baseNavItems, ...adminNavItems, ...bottomNavItems] : [...baseNavItems, ...bottomNavItems];
+  const navItems = isAdmin ? [...baseNavItems, ...adminNavItems] : [...baseNavItems];
+  const finalNavItems = [...navItems, ...bottomNavItems];
 
   return (
     <SidebarMenu>
-      {navItems.map((item) => (
+      {finalNavItems.map((item) => (
         <SidebarMenuItem key={item.href}>
           <SidebarMenuButton
             asChild
