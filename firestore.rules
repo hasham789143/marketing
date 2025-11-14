@@ -10,9 +10,14 @@ service cloud.firestore {
     }
 
     // Admins can read and write all user data
+    // Users can read their own data and write to their own cart
     match /users/{userId} {
       allow read, write: if isAdmin();
-      allow get: if request.auth.uid == userId; // Users can read their own data
+      allow get: if request.auth.uid == userId;
+
+      match /cart/{cartItemId} {
+        allow read, write, delete: if request.auth.uid == userId;
+      }
     }
     
     // Shops can be read by anyone to allow Shop ID verification on sign up.
