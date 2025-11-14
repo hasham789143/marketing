@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Product } from '@/lib/data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { addDoc, collection, doc } from 'firebase/firestore';
 import { ShoppingCart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -40,13 +40,36 @@ export default function CustomerProductsPage() {
 
   const { data: products, isLoading } = useCollection<Product>(productsRef);
 
-  const handleAddToCart = (product: Product) => {
-    // TODO: Implement actual cart logic (e.g., using context or state management)
-    toast({
-      title: 'Added to Cart',
-      description: `${product.name} has been added to your cart.`,
-    });
-    console.log('Added to cart:', product);
+  const handleAddToCart = async (product: Product) => {
+    if (!user) {
+        toast({
+            variant: "destructive",
+            title: "Not Logged In",
+            description: "You must be logged in to add items to your cart.",
+        });
+        return;
+    }
+    try {
+      const cartRef = collection(firestore, `users/${user.uid}/cart`);
+      await addDoc(cartRef, {
+        productId: product.id,
+        name: product.name,
+        price: product.price,
+        quantity: 1,
+        imageUrlId: product.imageUrlId,
+      });
+
+      toast({
+        title: 'Added to Cart',
+        description: `${product.name} has been added to your cart.`,
+      });
+    } catch (error: any) {
+        toast({
+            variant: "destructive",
+            title: "Failed to Add to Cart",
+            description: error.message,
+        });
+    }
   };
 
   return (
