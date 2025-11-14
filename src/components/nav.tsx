@@ -39,6 +39,7 @@ const shopNavItems = [
 
 const customerNavItems = [
     { href: '/customer/products', label: 'Browse Products', icon: ShoppingBag },
+    { href: '/customer/cart', label: 'My Cart', icon: ShoppingCart },
     { href: '/customer/orders', label: 'My Orders', icon: Package },
     { href: '/customer/profile', label: 'Profile', icon: UserIcon },
 ];
