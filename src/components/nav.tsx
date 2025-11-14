@@ -102,6 +102,13 @@ export function Nav() {
   }
 
   const finalNavItems = [...navItems, ...bottomNavItems];
+  
+  const isActive = (href: string) => {
+    if (href === '/dashboard' || href === '/customer') {
+      return pathname === href;
+    }
+    return pathname.startsWith(href);
+  };
 
   return (
     <SidebarMenu>
@@ -109,7 +116,7 @@ export function Nav() {
         <SidebarMenuItem key={item.href}>
           <SidebarMenuButton
             asChild
-            isActive={pathname.startsWith(item.href) && (item.href === '/dashboard' || item.href === '/customer' ? pathname === item.href : true)}
+            isActive={isActive(item.href)}
             tooltip={item.label}
           >
             <Link href={item.href}>

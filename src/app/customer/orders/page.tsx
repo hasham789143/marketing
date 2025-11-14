@@ -14,28 +14,36 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { Order } from '@/lib/data';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, doc, query, where } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
+
+interface UserData {
+  shopId?: string;
+}
 
 export default function CustomerOrdersPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const router = useRouter();
 
-  const ordersRef = useMemoFirebase(() => {
+  const userDocRef = useMemoFirebase(() => {
     if (!user) return null;
-    // This is not optimal as it queries all shops. A better approach would be to have a user-centric orders collection.
-    // For now, we query all shops and filter by customerId.
-    // A more scalable solution would involve duplicating order data or using a root collection for user orders.
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userData } = useDoc<UserData>(userDocRef);
+
+  const ordersRef = useMemoFirebase(() => {
+    if (!user || !userData?.shopId) return null;
+    // Query orders from the specific shop the user is associated with.
     return query(
-      collection(firestore, `shops/SHOP-X8Y1/orders`),
+      collection(firestore, `shops/${userData.shopId}/orders`),
       where('customerId', '==', user.uid)
     );
-  }, [firestore, user]);
+  }, [firestore, user, userData]);
 
   const { data: orders, isLoading } = useCollection<Order>(ordersRef);
 
