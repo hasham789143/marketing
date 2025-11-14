@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/table';
 import { Bot, Loader2, Sparkles } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection } from 'firebase/firestore';
 
 function SubmitButton() {
@@ -48,10 +48,15 @@ export function StaffActivity() {
     timestamp: null,
   });
   const prevStateRef = useRef(state);
-
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const logsRef = useMemoFirebase(() => collection(firestore, 'audit_logs'), [firestore]);
-  const { data: staffActivityLogs, isLoading } = useCollection<ActivityLog>(logsRef);
+
+  const logsRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return collection(firestore, 'audit_logs');
+  }, [firestore, user]);
+  
+  const { data: staffActivityLogs, isLoading: areLogsLoading } = useCollection<ActivityLog>(logsRef);
 
   useEffect(() => {
     if (state.timestamp !== prevStateRef.current.timestamp) {
@@ -65,6 +70,8 @@ export function StaffActivity() {
         prevStateRef.current = state;
     }
   }, [state, toast]);
+  
+  const isLoading = isUserLoading || areLogsLoading;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
