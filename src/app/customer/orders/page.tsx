@@ -19,10 +19,12 @@ import { Order } from '@/lib/data';
 import { collection, query, where } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { useRouter } from 'next/navigation';
 
 export default function CustomerOrdersPage() {
   const firestore = useFirestore();
   const { user } = useUser();
+  const router = useRouter();
 
   const ordersRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -54,11 +56,15 @@ export default function CustomerOrdersPage() {
     }
   };
 
+  const handleOrderClick = (orderId: string) => {
+    router.push(`/customer/orders/${orderId}`);
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>My Orders</CardTitle>
-        <CardDescription>A list of all your past orders.</CardDescription>
+        <CardDescription>A list of all your past orders. Click an order to see details.</CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
@@ -87,7 +93,7 @@ export default function CustomerOrdersPage() {
             )}
             {!isLoading &&
               orders?.map((order) => (
-                <TableRow key={order.id}>
+                <TableRow key={order.id} onClick={() => handleOrderClick(order.id)} className="cursor-pointer">
                   <TableCell className="font-medium">{order.id.substring(0, 8)}...</TableCell>
                   <TableCell>{format(new Date(order.date), 'PP')}</TableCell>
                   <TableCell>
