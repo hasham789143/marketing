@@ -1,3 +1,4 @@
+
 export type ProductVariant = {
   sku: string;
   price: number;
@@ -7,14 +8,10 @@ export type ProductVariant = {
 export type Product = {
   id: string;
   name: string;
-  sku: string;
   category: string;
-  price: number;
-  stock: number;
   imageUrlId: string;
   description?: string;
   images?: string[];
-  stockQty?: number;
   variants?: ProductVariant[];
 };
 

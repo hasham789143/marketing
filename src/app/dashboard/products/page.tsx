@@ -92,10 +92,10 @@ export default function ProductsPage() {
                 Image
               </TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>SKU</TableHead>
+              <TableHead>Variants</TableHead>
               <TableHead>Category</TableHead>
               <TableHead className="text-right">Price</TableHead>
-              <TableHead className="text-right">Stock</TableHead>
+              <TableHead className="text-right">Total Stock</TableHead>
               {isOwner && (
                 <TableHead>
                   <span className="sr-only">Actions</span>
@@ -113,10 +113,14 @@ export default function ProductsPage() {
             )}
             {!isLoading && shopId && products?.map((product) => {
               const image = PlaceHolderImages.find(p => p.id === product.imageUrlId);
+              // Aggregate data from variants
+              const totalStock = product.variants?.reduce((sum, v) => sum + v.stockQty, 0) ?? 0;
+              const lowestPrice = product.variants?.reduce((min, v) => v.price < min ? v.price : min, product.variants[0]?.price ?? 0) ?? 0;
+              
               return (
                 <TableRow key={product.id}>
                   <TableCell className="hidden sm:table-cell">
-                    {image && (
+                    {image ? (
                       <Image
                         alt={product.name}
                         className="aspect-square rounded-md object-cover"
@@ -125,17 +129,24 @@ export default function ProductsPage() {
                         width="64"
                         data-ai-hint={image.imageHint}
                       />
+                    ) : (
+                      <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center">
+                          <span className="text-xs text-muted-foreground">No Image</span>
+                      </div>
                     )}
                   </TableCell>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell>
-                    <Badge variant="outline">{product.sku}</Badge>
+                    {product.variants?.map(v => (
+                        <Badge key={v.sku} variant="outline" className="mr-1 mb-1">{v.sku}</Badge>
+                    ))}
                   </TableCell>
                   <TableCell>{product.category}</TableCell>
                   <TableCell className="text-right">
-                    PKR {product.price.toLocaleString()}
+                    PKR {lowestPrice.toLocaleString()}
+                    {product.variants && product.variants.length > 1 ? '+' : ''}
                   </TableCell>
-                  <TableCell className="text-right">{product.stockQty ?? product.stock}</TableCell>
+                  <TableCell className="text-right">{totalStock}</TableCell>
                   {isOwner && (
                     <TableCell>
                       <DropdownMenu>
