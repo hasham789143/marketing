@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useEffect, useRef, useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { useToast } from '@/hooks/use-toast';
 import { generateReportAction } from '@/app/actions';
 import { ActivityLog } from '@/lib/data';
@@ -42,7 +42,7 @@ function SubmitButton() {
 
 export function StaffActivity() {
   const { toast } = useToast();
-  const [state, formAction] = useFormState(generateReportAction, {
+  const [state, formAction] = useActionState(generateReportAction, {
     report: null,
     error: null,
     timestamp: null,
