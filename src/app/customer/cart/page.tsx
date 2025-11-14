@@ -20,7 +20,6 @@ import {
 } from '@/components/ui/table';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, writeBatch, serverTimestamp, getDocs, query } from 'firebase/firestore';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -35,7 +34,7 @@ interface CartItem {
   name: string;
   price: number;
   quantity: number;
-  imageUrlId: string;
+  imageUrl?: string;
 }
 
 interface UserData {
@@ -94,6 +93,7 @@ export default function CartPage() {
           name: item.name,
           price: item.price,
           quantity: item.quantity,
+          imageUrl: item.imageUrl || null,
         })),
         subtotal: subtotal,
         tax: 0, // Assuming no tax for now
@@ -109,20 +109,16 @@ export default function CartPage() {
         createdAt: serverTimestamp(),
       };
       
-      // Use a batch write to create the order and clear the cart atomically
       const batch = writeBatch(firestore);
 
-      // 1. Create the new order in the shop's orders subcollection
       const orderRef = doc(firestore, `shops/${shopId}/orders`, orderId);
       batch.set(orderRef, orderPayload);
 
-      // 2. Delete all items from the user's cart
       const cartSnapshot = await getDocs(query(collection(firestore, `users/${user.uid}/cart`)));
       cartSnapshot.forEach(doc => {
         batch.delete(doc.ref);
       });
 
-      // Commit the batch
       await batch.commit();
 
       toast({
@@ -190,7 +186,6 @@ export default function CartPage() {
             )}
             {!isLoading &&
               cartItems?.map((item) => {
-                const image = PlaceHolderImages.find((p) => p.id === item.imageUrlId);
                 return (
                   <TableRow key={item.id}>
                     <TableCell>
@@ -198,9 +193,9 @@ export default function CartPage() {
                         alt={item.name}
                         className="aspect-square rounded-md object-cover"
                         height="64"
-                        src={image?.imageUrl || 'https://placehold.co/64x64'}
+                        src={item.imageUrl || 'https://placehold.co/64x64'}
                         width="64"
-                        data-ai-hint={image?.imageHint || 'product image'}
+                        data-ai-hint={'product image'}
                       />
                     </TableCell>
                     <TableCell className="font-medium">{item.name}</TableCell>

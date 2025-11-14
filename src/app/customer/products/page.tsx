@@ -10,20 +10,34 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Product } from '@/lib/data';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { addDoc, collection, doc } from 'firebase/firestore';
+import { addDoc, collection, doc, query, where } from 'firebase/firestore';
 import { ShoppingCart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useState } from 'react';
+import { Label } from '@/components/ui/label';
 
 interface UserData {
   shopId?: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
 }
 
 export default function CustomerProductsPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   const userDocRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -33,10 +47,21 @@ export default function CustomerProductsPage() {
   const { data: userData } = useDoc<UserData>(userDocRef);
   const shopId = userData?.shopId;
 
+  const categoriesRef = useMemoFirebase(() => {
+    if (!shopId) return null;
+    return collection(firestore, `shops/${shopId}/categories`);
+  }, [firestore, shopId]);
+
+  const { data: categories } = useCollection<Category>(categoriesRef);
+
   const productsRef = useMemoFirebase(() => {
     if (!shopId) return null;
-    return collection(firestore, `shops/${shopId}/products`);
-  }, [firestore, shopId]);
+    const baseCollection = collection(firestore, `shops/${shopId}/products`);
+    if (selectedCategory === 'all') {
+      return baseCollection;
+    }
+    return query(baseCollection, where('category', '==', selectedCategory));
+  }, [firestore, shopId, selectedCategory]);
 
   const { data: products, isLoading } = useCollection<Product>(productsRef);
 
@@ -49,8 +74,6 @@ export default function CustomerProductsPage() {
         });
         return;
     }
-    // With variants, we should add a specific variant to the cart.
-    // For now, let's assume we're adding the first variant.
     const variantToAdd = product.variants?.[0];
     if (!variantToAdd) {
         toast({
@@ -69,7 +92,7 @@ export default function CustomerProductsPage() {
         price: variantToAdd.price,
         quantity: 1,
         sku: variantToAdd.sku,
-        imageUrlId: product.images?.[0] || null,
+        imageUrl: product.images?.[0] || null,
       });
 
       toast({
@@ -92,18 +115,36 @@ export default function CustomerProductsPage() {
         <CardDescription>
           Here are the products available from your associated shop.
         </CardDescription>
+        <div className="pt-4">
+            <Label htmlFor="category-filter" className="text-sm font-medium">Filter by Category</Label>
+            <Select
+                value={selectedCategory}
+                onValueChange={setSelectedCategory}
+            >
+                <SelectTrigger id="category-filter" className="w-[280px] mt-1">
+                    <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">All Products</SelectItem>
+                    {categories?.map(category => (
+                        <SelectItem key={category.id} value={category.name}>
+                            {category.name}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </div>
       </CardHeader>
       <CardContent>
         {isLoading && <p>Loading products...</p>}
         {!isLoading && !products?.length && (
-          <p className="text-center text-muted-foreground">
-            No products found for this shop.
+          <p className="text-center text-muted-foreground py-8">
+            No products found in this category.
           </p>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {!isLoading && products?.map((product) => {
-            const image = PlaceHolderImages.find(p => p.id === product.images?.[0]);
-            // Since price and stock are per-variant, we'll display the first variant's info.
+            const imageUrl = product.images?.[0];
             const displayVariant = product.variants?.[0];
             const price = displayVariant?.price ?? 0;
             const stock = displayVariant?.stockQty ?? 0;
@@ -111,13 +152,13 @@ export default function CustomerProductsPage() {
             return (
               <Card key={product.id} className="flex flex-col">
                 <div className="relative w-full h-48">
-                    {image ? (
+                    {imageUrl ? (
                     <Image
                         alt={product.name}
                         className="aspect-square rounded-t-lg object-cover"
-                        src={image.imageUrl}
+                        src={imageUrl}
                         fill
-                        data-ai-hint={image.imageHint}
+                        data-ai-hint={product.name}
                     />
                     ) : (
                         <div className="w-full h-full bg-muted rounded-t-lg flex items-center justify-center">

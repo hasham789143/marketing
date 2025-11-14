@@ -14,6 +14,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import {
   Card,
@@ -22,7 +29,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { addDoc, collection, doc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -40,12 +47,18 @@ const formSchema = z.object({
   name: z.string().min(2, { message: 'Product name must be at least 2 characters.' }),
   category: z.string().min(1, { message: 'Category is required.' }),
   description: z.string().optional(),
+  imageUrl: z.string().url({ message: "Please enter a valid URL." }).optional(),
   variants: z.array(variantSchema).min(1, 'You must add at least one product variant.'),
 });
 
 interface UserData {
     role: string;
     shopId?: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
 }
 
 export default function AddProductPage() {
@@ -60,6 +73,14 @@ export default function AddProductPage() {
   }, [firestore, user]);
 
   const { data: userData, isLoading: isUserDataLoading } = useDoc<UserData>(userDocRef);
+  const shopId = userData?.shopId;
+  
+  const categoriesRef = useMemoFirebase(() => {
+    if (!shopId) return null;
+    return collection(firestore, `shops/${shopId}/categories`);
+  }, [firestore, shopId]);
+  
+  const { data: categories, isLoading: areCategoriesLoading } = useCollection<Category>(categoriesRef);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -67,6 +88,7 @@ export default function AddProductPage() {
       name: '',
       category: '',
       description: '',
+      imageUrl: '',
       variants: [{ sku: '', price: 0, stockQty: 0 }],
     },
   });
@@ -77,7 +99,7 @@ export default function AddProductPage() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!userData?.shopId) {
+    if (!shopId) {
         toast({
             variant: 'destructive',
             title: 'Operation Failed',
@@ -87,11 +109,7 @@ export default function AddProductPage() {
     }
 
     try {
-      const shopId = userData.shopId;
       const productId = `PROD-${uuidv4().substring(0, 4).toUpperCase()}`;
-
-      // The main product document no longer has a single price or stock.
-      // It now has an array of variants.
       const totalStock = values.variants.reduce((sum, v) => sum + v.stockQty, 0);
 
       await addDoc(collection(firestore, `shops/${shopId}/products`), {
@@ -100,17 +118,17 @@ export default function AddProductPage() {
         name: values.name,
         category: values.category,
         description: values.description,
-        variants: values.variants, // Store the array of variants
-        price: values.variants[0]?.price || 0, // For display purposes, maybe use lowest price
-        stockQty: totalStock, // Aggregated stock
-        images: [], // Default to empty array
+        variants: values.variants,
+        price: values.variants[0]?.price || 0,
+        stockQty: totalStock,
+        images: values.imageUrl ? [values.imageUrl] : [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
 
       toast({
         title: 'Product Added',
-        description: `Product "${values.name}" has been successfully added with ${values.variants.length} variant(s).`,
+        description: `Product "${values.name}" has been successfully added.`,
       });
 
       router.push('/dashboard/products');
@@ -124,7 +142,7 @@ export default function AddProductPage() {
     }
   }
 
-  const isLoading = isUserLoading || isUserDataLoading;
+  const isLoading = isUserLoading || isUserDataLoading || areCategoriesLoading;
   const isOwner = userData?.role === 'owner';
 
   if (isLoading) {
@@ -177,9 +195,20 @@ export default function AddProductPage() {
                             render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Category</FormLabel>
-                                <FormControl>
-                                <Input placeholder="e.g., Apparel" {...field} />
-                                </FormControl>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a category" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {categories?.map((category) => (
+                                            <SelectItem key={category.id} value={category.name}>
+                                                {category.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                                 <FormMessage />
                             </FormItem>
                             )}
@@ -198,6 +227,23 @@ export default function AddProductPage() {
                         </FormItem>
                         )}
                     />
+                    <FormField
+                        control={form.control}
+                        name="imageUrl"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Image URL</FormLabel>
+                            <FormControl>
+                            <Input placeholder="https://example.com/image.png" {...field} />
+                            </FormControl>
+                            <FormDescription>
+                                Enter a valid URL for the product image.
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+
 
                     <Separator />
 

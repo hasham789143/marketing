@@ -172,6 +172,32 @@
         "updatedAt"
       ]
     },
+    "Category": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Category",
+      "type": "object",
+      "description": "Represents a product category for a shop.",
+      "properties": {
+        "categoryId": {
+          "type": "string",
+          "description": "Unique identifier for the category."
+        },
+        "shopId": {
+          "type": "string",
+          "description": "Reference to the Shop the category belongs to."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the category."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the category was created.",
+          "format": "date-time"
+        }
+      },
+      "required": ["categoryId", "shopId", "name", "createdAt"]
+    },
     "ProductVariant": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "ProductVariant",
@@ -435,6 +461,24 @@
               "description": "Unique identifier for the product."
             }
           ]
+        }
+      },
+      {
+        "path": "/shops/{shopId}/categories/{categoryId}",
+        "definition": {
+            "entityName": "Category",
+            "schema": { "$ref": "#/backend/entities/Category" },
+            "description": "Stores product categories for each shop.",
+            "params": [
+                {
+                    "name": "shopId",
+                    "description": "Unique identifier for the shop."
+                },
+                {
+                    "name": "categoryId",
+                    "description": "Unique identifier for the category."
+                }
+            ]
         }
       },
       {

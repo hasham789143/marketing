@@ -19,6 +19,7 @@ import {
   Package,
   Users2,
   ShoppingBag,
+  List,
 } from 'lucide-react';
 import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -33,6 +34,7 @@ const shopNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/orders', label: 'Orders', icon: ShoppingCart },
   { href: '/dashboard/products', label: 'Products', icon: Box },
+  { href: '/dashboard/categories', label: 'Categories', icon: List },
   { href: '/dashboard/customers', label: 'Customers', icon: Users },
   { href: '/dashboard/staff', label: 'Staff', icon: Users2 },
 ];

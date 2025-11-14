@@ -25,7 +25,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Product } from '@/lib/data';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
@@ -112,22 +111,21 @@ export default function ProductsPage() {
                 <TableRow><TableCell colSpan={isOwner ? 7 : 6} className="text-center">No products found for this shop.</TableCell></TableRow>
             )}
             {!isLoading && shopId && products?.map((product) => {
-              const image = PlaceHolderImages.find(p => p.id === product.imageUrlId);
-              // Aggregate data from variants
+              const imageUrl = product.images?.[0];
               const totalStock = product.variants?.reduce((sum, v) => sum + v.stockQty, 0) ?? 0;
               const lowestPrice = product.variants?.reduce((min, v) => v.price < min ? v.price : min, product.variants[0]?.price ?? 0) ?? 0;
               
               return (
                 <TableRow key={product.id}>
                   <TableCell className="hidden sm:table-cell">
-                    {image ? (
+                    {imageUrl ? (
                       <Image
                         alt={product.name}
                         className="aspect-square rounded-md object-cover"
                         height="64"
-                        src={image.imageUrl}
+                        src={imageUrl}
                         width="64"
-                        data-ai-hint={image.imageHint}
+                        data-ai-hint={product.name}
                       />
                     ) : (
                       <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center">
