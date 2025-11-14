@@ -34,7 +34,7 @@ const shopNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/orders', label: 'Orders', icon: ShoppingCart },
   { href: '/dashboard/products', label: 'Products', icon: Box },
-  { href: '/dashboard/staff', label: 'Staff', icon: Users },
+  { href: '/dashboard/staff', label: 'Users', icon: Users },
 ];
 
 const customerNavItems = [
@@ -122,4 +122,5 @@ export function Nav() {
     </SidebarMenu>
   );
 }
+
 
