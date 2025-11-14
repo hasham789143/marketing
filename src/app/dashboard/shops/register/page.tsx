@@ -1,0 +1,238 @@
+'use client';
+
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { useAuth, useFirestore } from '@/firebase';
+import { addDoc, collection, doc, setDoc } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
+import { v4 as uuidv4 } from 'uuid';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+
+
+const formSchema = z.object({
+  shopName: z.string().min(2, { message: 'Shop name must be at least 2 characters.' }),
+  ownerName: z.string().min(2, { message: 'Owner name must be at least 2 characters.' }),
+  ownerEmail: z.string().email({ message: 'Invalid email address.' }),
+  ownerPassword: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
+  phone: z.string().min(1, { message: 'Phone number is required.' }),
+  deliveryChargeDefault: z.coerce.number().min(0, { message: 'Must be a positive number.' }),
+  currency: z.string().min(2, { message: 'Currency is required.' }),
+  taxRate: z.coerce.number().min(0, { message: 'Must be a positive number.' }),
+});
+
+export default function RegisterShopPage() {
+    const auth = useAuth();
+    const firestore = useFirestore();
+    const router = useRouter();
+    const { toast } = useToast();
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      shopName: '',
+      ownerName: '',
+      ownerEmail: '',
+      ownerPassword: '',
+      phone: '',
+      deliveryChargeDefault: 150,
+      currency: 'PKR',
+      taxRate: 0,
+    },
+  });
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      // It's not ideal to create users like this. A better approach would be a server-side function.
+      // This is a temporary solution for the demo.
+      const userCredential = await createUserWithEmailAndPassword(auth, values.ownerEmail, values.ownerPassword);
+      const ownerUser = userCredential.user;
+
+      const shopId = `SHOP-${uuidv4().substring(0, 4).toUpperCase()}`;
+
+      // Create shop document
+      await setDoc(doc(firestore, "shops", shopId), {
+          shopId: shopId,
+          shopName: values.shopName,
+          ownerUserId: ownerUser.uid,
+          email: values.ownerEmail,
+          phone: values.phone,
+          deliveryChargeDefault: values.deliveryChargeDefault,
+          currency: values.currency,
+          taxRate: values.taxRate,
+          status: 'active',
+          createdAt: new Date().toISOString()
+      });
+
+      // Create owner user document
+      await setDoc(doc(firestore, "users", ownerUser.uid), {
+        userId: ownerUser.uid,
+        name: values.ownerName,
+        email: values.ownerEmail,
+        phone: values.phone,
+        role: 'owner',
+        shopId: shopId,
+        createdAt: new Date().toISOString()
+      });
+
+      toast({
+        title: 'Shop Registered',
+        description: `Shop "${values.shopName}" and owner have been created.`,
+      });
+
+      router.push('/dashboard/shops');
+
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Registration Failed',
+        description: error.message,
+      });
+    }
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto">
+        <Card>
+            <CardHeader>
+            <CardTitle>Register a New Shop</CardTitle>
+            <CardDescription>Fill out the details to create a new shop and its owner.</CardDescription>
+            </CardHeader>
+            <CardContent>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <FormField
+                        control={form.control}
+                        name="shopName"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Shop Name</FormLabel>
+                            <FormControl>
+                            <Input placeholder="e.g., Ali's Fashion" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                     <FormField
+                        control={form.control}
+                        name="ownerName"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Owner's Full Name</FormLabel>
+                            <FormControl>
+                            <Input placeholder="e.g., Ali Hasham" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="ownerEmail"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Owner's Email</FormLabel>
+                                <FormControl>
+                                <Input type="email" placeholder="owner@example.com" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="ownerPassword"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Owner's Password</Form-Label>
+                                <FormControl>
+                                <Input type="password" placeholder="••••••••" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                    </div>
+                     <FormField
+                        control={form.control}
+                        name="phone"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Shop Phone Number</FormLabel>
+                            <FormControl>
+                            <Input placeholder="+92 300 1234567" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="deliveryChargeDefault"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Default Delivery</FormLabel>
+                                <FormControl>
+                                <Input type="number" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="currency"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Currency</FormLabel>
+                                <FormControl>
+                                <Input {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="taxRate"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Tax Rate (%)</FormLabel>
+                                <FormControl>
+                                <Input type="number" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                    </div>
+                    
+                    <Button type="submit" className="w-full">Register Shop</Button>
+                </form>
+            </Form>
+            </CardContent>
+        </Card>
+    </div>
+  );
+}

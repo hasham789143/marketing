@@ -12,19 +12,24 @@ import { Header } from '@/components/header';
 import { Nav } from '@/components/nav';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Bot, LogOut } from 'lucide-react';
-import { useAuth } from '@/firebase';
+import { Bot, LogOut, LogIn } from 'lucide-react';
+import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const auth = useAuth();
+  const { user } = useUser();
   const router = useRouter();
 
   const handleSignOut = () => {
     signOut(auth).then(() => {
-      router.push('/');
+      router.push('/login');
     });
+  };
+
+  const handleSignIn = () => {
+    router.push('/login');
   };
 
   return (
@@ -44,10 +49,17 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <Nav />
           </SidebarContent>
           <SidebarFooter>
-             <Button variant="ghost" className="w-full justify-start gap-2" onClick={handleSignOut}>
-                <LogOut/>
-                <span className="duration-200 group-data-[collapsible=icon]:hidden">Logout</span>
-             </Button>
+            {user ? (
+               <Button variant="ghost" className="w-full justify-start gap-2" onClick={handleSignOut}>
+                  <LogOut/>
+                  <span className="duration-200 group-data-[collapsible=icon]:hidden">Logout</span>
+               </Button>
+            ) : (
+               <Button variant="ghost" className="w-full justify-start gap-2" onClick={handleSignIn}>
+                  <LogIn/>
+                  <span className="duration-200 group-data-[collapsible=icon]:hidden">Login</span>
+               </Button>
+            )}
           </SidebarFooter>
         </Sidebar>
         <SidebarInset className="flex flex-col">

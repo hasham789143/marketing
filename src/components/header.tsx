@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Bell,
   Home,
@@ -23,12 +23,21 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { useUser } from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
+import { signOut } from 'firebase/auth';
 
 export function Header() {
   const pathname = usePathname();
   const { user } = useUser();
+  const auth = useAuth();
+  const router = useRouter();
   const avatar = PlaceHolderImages.find(p => p.id === 'avatar-1');
+
+  const handleSignOut = () => {
+    signOut(auth).then(() => {
+      router.push('/login');
+    });
+  };
   
   const getBreadcrumbs = () => {
     const segments = pathname.split('/').filter(Boolean);
@@ -69,28 +78,30 @@ export function Header() {
           <Bell className="h-5 w-5" />
           <span className="sr-only">Toggle notifications</span>
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <Avatar className="h-8 w-8">
-                {avatar && <AvatarImage src={user?.photoURL || avatar.imageUrl} alt={user?.displayName || ''} />}
-                <AvatarFallback>{user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem><User className="mr-2 h-4 w-4" />Profile</DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/dashboard/settings">
-                <Settings className="mr-2 h-4 w-4" />Settings
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem><LogOut className="mr-2 h-4 w-4" />Log out</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {user && (
+            <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                <Avatar className="h-8 w-8">
+                    {avatar && <AvatarImage src={user?.photoURL || avatar.imageUrl} alt={user?.displayName || ''} />}
+                    <AvatarFallback>{user?.displayName?.charAt(0) || user?.email?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                </Avatar>
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuLabel>{user.displayName || user.email}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem><User className="mr-2 h-4 w-4" />Profile</DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                <Link href="/dashboard/settings">
+                    <Settings className="mr-2 h-4 w-4" />Settings
+                </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut}><LogOut className="mr-2 h-4 w-4" />Log out</DropdownMenuItem>
+            </DropdownMenuContent>
+            </DropdownMenu>
+        )}
       </div>
     </header>
   );

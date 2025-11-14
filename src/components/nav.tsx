@@ -13,18 +13,41 @@ import {
   ShoppingCart,
   Users,
   Settings,
+  Store,
 } from 'lucide-react';
+import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
-const navItems = [
+const baseNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/orders', label: 'Orders', icon: ShoppingCart },
   { href: '/dashboard/products', label: 'Products', icon: Box },
   { href: '/dashboard/staff', label: 'Staff', icon: Users },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
+
+const adminNavItems = [
+    { href: '/dashboard/shops', label: 'Shops', icon: Store },
+];
+
+const bottomNavItems = [
+    { href: '/dashboard/settings', label: 'Settings', icon: Settings },
+]
 
 export function Nav() {
   const pathname = usePathname();
+  const { user } = useUser();
+  const firestore = useFirestore();
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+
+  const { data: userData } = useDoc<{ role: string }>(userDocRef);
+
+  const isAdmin = userData?.role === 'admin';
+
+  const navItems = isAdmin ? [...baseNavItems, ...adminNavItems, ...bottomNavItems] : [...baseNavItems, ...bottomNavItems];
 
   return (
     <SidebarMenu>
@@ -32,7 +55,7 @@ export function Nav() {
         <SidebarMenuItem key={item.href}>
           <SidebarMenuButton
             asChild
-            isActive={pathname === item.href}
+            isActive={pathname.startsWith(item.href) && (item.href === '/dashboard' ? pathname === item.href : true)}
             tooltip={item.label}
           >
             <Link href={item.href}>

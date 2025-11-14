@@ -5,23 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { ArrowRight, BarChart, Box, DollarSign } from 'lucide-react';
-import { useAuth, useUser } from '@/firebase';
+import { useUser } from '@/firebase';
 import { useEffect } from 'react';
-import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
 import { useRouter } from 'next/navigation';
 
 
 export default function Home() {
   const heroImage = PlaceHolderImages.find(p => p.id === 'landing-hero');
-  const auth = useAuth();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
 
-  useEffect(() => {
-    if (!user && !isUserLoading) {
-      initiateAnonymousSignIn(auth);
-    }
-  }, [user, isUserLoading, auth]);
 
   useEffect(() => {
     if(user) {
@@ -48,7 +41,7 @@ export default function Home() {
     },
   ];
 
-  if (isUserLoading || user) {
+  if (isUserLoading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background">
         <p>Loading...</p>
@@ -75,12 +68,12 @@ export default function Home() {
             <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl md:text-7xl font-headline">
               Streamline Your Shop Operations
             </h1>
-            <p className="mt-4 text-lg text-gray-200 md:text-xl">
+            <p className="mt-4 text-lg text-muted-foreground md:text-xl">
               ShopSync provides all the tools you need to manage products, orders, staff, and gain valuable insights to grow your business.
             </p>
             <div className="mt-8 flex justify-center gap-4">
               <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold">
-                <Link href="/dashboard">
+                <Link href="/login">
                   Get Started <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
