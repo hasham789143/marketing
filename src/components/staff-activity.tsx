@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { useActionState, useFormStatus } from 'react-dom';
+import { useEffect, useRef, useState, useTransition } from 'react';
+import { useFormStatus } from 'react-dom';
 import { useToast } from '@/hooks/use-toast';
 import { generateReportAction } from '@/app/actions';
 import { ActivityLog } from '@/lib/data';
@@ -40,13 +40,21 @@ function SubmitButton() {
   );
 }
 
+interface ReportState {
+  report: string | null;
+  error: string | null;
+  timestamp: number | null;
+}
+
 export function StaffActivity() {
   const { toast } = useToast();
-  const [state, formAction] = useActionState(generateReportAction, {
+  const [state, setState] = useState<ReportState>({
     report: null,
     error: null,
     timestamp: null,
   });
+  const [isPending, startTransition] = useTransition();
+  
   const prevStateRef = useRef(state);
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
@@ -57,6 +65,13 @@ export function StaffActivity() {
   }, [firestore, user, isUserLoading]);
   
   const { data: staffActivityLogs, isLoading: areLogsLoading } = useCollection<ActivityLog>(logsRef);
+  
+  const formAction = (formData: FormData) => {
+    startTransition(async () => {
+      const result = await generateReportAction(state, formData);
+      setState(result);
+    });
+  };
 
   useEffect(() => {
     if (state.timestamp !== prevStateRef.current.timestamp) {
@@ -130,13 +145,20 @@ export function StaffActivity() {
           </CardHeader>
           <CardContent>
             <form action={formAction} className="flex flex-col gap-4">
-              <SubmitButton />
+              <Button type="submit" disabled={isPending}>
+                {isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-2 h-4 w-4" />
+                )}
+                Generate Activity Insights
+              </Button>
             </form>
-            {(state.report || useFormStatus().pending) && (
+            {(state.report || isPending) && (
               <div className="mt-6">
                 <h4 className="font-semibold mb-2">Generated Report</h4>
                 <div className="prose prose-sm dark:prose-invert max-w-none p-4 border rounded-lg bg-muted/50">
-                    {useFormStatus().pending && !state.report && <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /><span>Generating your report...</span></div>}
+                    {isPending && !state.report && <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /><span>Generating your report...</span></div>}
                     {state.report && <p>{state.report}</p>}
                 </div>
               </div>
