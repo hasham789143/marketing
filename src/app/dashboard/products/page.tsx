@@ -28,6 +28,7 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
+import Link from 'next/link';
 
 export default function ProductsPage() {
 
@@ -44,9 +45,11 @@ export default function ProductsPage() {
             Manage your products and view their inventory.
           </CardDescription>
         </div>
-        <Button>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add Product
+        <Button asChild>
+          <Link href="/dashboard/products/add">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add Product
+          </Link>
         </Button>
       </CardHeader>
       <CardContent>
