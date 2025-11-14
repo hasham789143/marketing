@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -14,9 +15,9 @@ import {
   ChartConfig
 } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { DollarSign, ShoppingCart, Users, Activity } from 'lucide-react';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { DollarSign, ShoppingCart, Users, Activity, Store } from 'lucide-react';
+import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
 import { Order, Staff } from '@/lib/data';
 import { useMemo } from 'react';
 
@@ -27,26 +28,65 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
+interface UserData {
+  role: string;
+  shopId?: string;
+}
+
 export default function DashboardPage() {
   const firestore = useFirestore();
-  
-  const ordersRef = useMemoFirebase(() => collection(firestore, 'shops/SHOP-X8Y1/orders'), [firestore]);
+  const { user } = useUser();
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userData, isLoading: isUserDataLoading } = useDoc<UserData>(userDocRef);
+  const role = userData?.role;
+  const shopId = userData?.shopId;
+
+  // Data fetching for Owners/Staff
+  const ordersRef = useMemoFirebase(() => {
+    if (role === 'admin' || !shopId) return null;
+    return collection(firestore, `shops/${shopId}/orders`);
+  }, [firestore, role, shopId]);
   const { data: orders } = useCollection<Order>(ordersRef);
-  
-  const staffRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+
+  const staffRef = useMemoFirebase(() => {
+    if (role === 'admin' || !shopId) return null;
+    return collection(firestore, 'users'); // Note: This still fetches all users, might need refinement
+  }, [firestore, role, shopId]);
   const { data: staff } = useCollection<Staff>(staffRef);
 
+  // Data fetching for Admins
+  const allShopsRef = useMemoFirebase(() => {
+    if (role !== 'admin') return null;
+    return collection(firestore, 'shops');
+  }, [firestore, role]);
+  const { data: allShops } = useCollection(allShopsRef);
+
+  const allUsersRef = useMemoFirebase(() => {
+    if (role !== 'admin') return null;
+    return collection(firestore, 'users');
+  }, [firestore, role]);
+  const { data: allUsers } = useCollection(allUsersRef);
+
+
   const totalRevenue = useMemo(() => {
+    if (role === 'admin') return 0; // Admin revenue calculation needs to be aggregated
     return orders?.filter(o => o.paymentStatus === 'Paid').reduce((acc, order) => acc + order.total, 0) || 0;
-  }, [orders]);
+  }, [orders, role]);
   
   const newOrdersCount = useMemo(() => {
+    if (role === 'admin') return 0;
     const oneMonthAgo = new Date();
     oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
     return orders?.filter(order => new Date(order.date) > oneMonthAgo).length || 0;
-  }, [orders]);
+  }, [orders, role]);
 
   const chartData = useMemo(() => {
+    if (role === 'admin') return [];
     const monthlyRevenue: { [key: string]: number } = {};
     orders?.forEach(order => {
       const month = new Date(order.date).toLocaleString('default', { month: 'long' });
@@ -63,9 +103,58 @@ export default function DashboardPage() {
       revenue: monthlyRevenue[month] || 0
     })).filter(d => d.revenue > 0);
 
-  }, [orders]);
+  }, [orders, role]);
 
+  if (isUserDataLoading) {
+    return <div>Loading dashboard...</div>;
+  }
 
+  if (role === 'admin') {
+    return (
+      <div className="flex flex-col gap-8">
+        <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+        <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Shops</CardTitle>
+              <Store className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{allShops?.length || 0}</div>
+              <p className="text-xs text-muted-foreground">
+                Total registered shops on the platform.
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{allUsers?.length || 0}</div>
+              <p className="text-xs text-muted-foreground">
+                Includes owners, staff, and customers.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+        <Card>
+           <CardHeader>
+                <CardTitle>Platform Overview</CardTitle>
+                <CardDescription>
+                    More platform-wide analytics and reports will be available here.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <p className="text-muted-foreground">This is the central place for managing the entire platform.</p>
+            </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Dashboard for Owner/Staff
   return (
     <div className="flex flex-col gap-8">
       <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
@@ -154,3 +243,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
