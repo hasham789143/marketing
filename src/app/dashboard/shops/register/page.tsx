@@ -164,7 +164,7 @@ export default function RegisterShopPage() {
                             name="ownerPassword"
                             render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Owner's Password</Form-Label>
+                                <FormLabel>Owner's Password</FormLabel>
                                 <FormControl>
                                 <Input type="password" placeholder="••••••••" {...field} />
                                 </FormControl>

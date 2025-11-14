@@ -37,7 +37,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isAuth() && getUserData(request.auth.uid).role == 'admin';
+      return isAuth() && request.auth.token.role == 'admin';
     }
 
     /**

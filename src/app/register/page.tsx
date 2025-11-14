@@ -53,13 +53,15 @@ export default function RegisterPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
       
+      const role = values.email.endsWith('@admin.com') ? 'admin' : 'customer';
+
       // Add user to firestore
       await setDoc(doc(firestore, "users", user.uid), {
         userId: user.uid,
         name: values.name,
         email: values.email,
         phone: '', // Initially empty
-        role: 'customer', // Default role
+        role: role, 
         createdAt: new Date().toISOString(),
       });
       
