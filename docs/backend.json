@@ -248,7 +248,8 @@
         },
         "paymentMethod": {
           "type": "string",
-          "description": "Method of payment used for the order (Online Payment, COD)."
+          "description": "Method of payment used for the order.",
+          "enum": ["Cash on Delivery", "Pay at End of Month"]
         },
         "deliveryAddress": {
           "type": "string",

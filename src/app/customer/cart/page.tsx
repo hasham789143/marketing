@@ -19,12 +19,16 @@ import {
   TableFooter,
 } from '@/components/ui/table';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, doc, writeBatch, serverTimestamp, addDoc, query, getDocs } from 'firebase/firestore';
+import { collection, doc, writeBatch, serverTimestamp, getDocs, query } from 'firebase/firestore';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
+import { useState } from 'react';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Separator } from '@/components/ui/separator';
 
 interface CartItem {
   id: string;
@@ -37,13 +41,17 @@ interface CartItem {
 interface UserData {
   shopId?: string;
   name?: string;
+  deliveryAddress?: string;
 }
+
+type PaymentMethod = 'Cash on Delivery' | 'Pay at End of Month';
 
 export default function CartPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
   const router = useRouter();
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash on Delivery');
 
   const userDocRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -92,10 +100,10 @@ export default function CartPage() {
         deliveryCharge: deliveryCharge,
         discount: 0, // Assuming no discount
         total: total,
-        status: 'Pending',
+        orderStatus: 'Pending',
         paymentStatus: 'Unpaid',
-        paymentMethod: 'COD', // Assuming Cash on Delivery
-        deliveryAddress: 'Default Address', // Placeholder
+        paymentMethod: paymentMethod,
+        deliveryAddress: userData.deliveryAddress || 'Default Address', // Placeholder
         date: new Date().toISOString(),
         updatedAt: serverTimestamp(),
         createdAt: serverTimestamp(),
@@ -223,6 +231,22 @@ export default function CartPage() {
             </TableRow>
           </TableFooter>
         </Table>
+
+        <Separator className="my-6" />
+
+        <div className="space-y-4">
+            <h3 className="text-lg font-medium">Payment Method</h3>
+            <RadioGroup value={paymentMethod} onValueChange={(value: PaymentMethod) => setPaymentMethod(value)}>
+                <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="Cash on Delivery" id="cod" />
+                    <Label htmlFor="cod">Cash on Delivery (COD)</Label>
+                </div>
+                 <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="Pay at End of Month" id="monthly" />
+                    <Label htmlFor="monthly">Pay at End of Month</Label>
+                </div>
+            </RadioGroup>
+        </div>
       </CardContent>
       <CardFooter>
         <Button

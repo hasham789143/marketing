@@ -40,6 +40,8 @@ interface OrderDetails {
   deliveryCharge: number;
   total: number;
   status: 'Pending' | 'Accepted' | 'Preparing' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
+  paymentMethod: string;
+  paymentStatus: string;
   date: string;
   deliveryAddress: string;
 }
@@ -157,6 +159,20 @@ export default function OrderDetailsPage() {
              <div className="flex justify-between font-semibold text-lg">
                 <span>Total</span>
                 <span>PKR {order.total.toLocaleString()}</span>
+            </div>
+        </div>
+        <Separator className="my-4" />
+        <div className="grid gap-2">
+            <div>
+                <h3 className="font-semibold text-base">Payment Details</h3>
+                <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Payment Method</span>
+                    <span>{order.paymentMethod}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Payment Status</span>
+                    <Badge variant={order.paymentStatus === 'Paid' ? 'default' : 'secondary'}>{order.paymentStatus}</Badge>
+                </div>
             </div>
         </div>
       </CardContent>
