@@ -34,6 +34,7 @@ const shopNavItems = [
   { href: '/dashboard/orders', label: 'Orders', icon: ShoppingCart },
   { href: '/dashboard/products', label: 'Products', icon: Box },
   { href: '/dashboard/customers', label: 'Customers', icon: Users },
+  { href: '/dashboard/staff', label: 'Staff', icon: Users2 },
 ];
 
 const customerNavItems = [

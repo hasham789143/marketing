@@ -15,7 +15,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, doc, query, where, or } from 'firebase/firestore';
+import { collection, doc, query, where } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
 
 interface User {
   id: string;
@@ -28,9 +29,10 @@ interface UserData {
     shopId?: string;
 }
 
-export default function StaffPage() {
+export default function CustomersPage() {
   const firestore = useFirestore();
   const { user } = useUser();
+  const router = useRouter();
 
   const userDocRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -46,18 +48,22 @@ export default function StaffPage() {
     return query(
         baseCollection, 
         where('shopId', '==', shopId),
-        or(where('role', '==', 'staff'), where('role', '==', 'owner'))
+        where('role', '==', 'customer')
     );
   }, [firestore, shopId]);
   
-  const { data: staff, isLoading } = useCollection<User>(usersRef);
+  const { data: customers, isLoading } = useCollection<User>(usersRef);
+
+  const handleCustomerClick = (customerId: string) => {
+    router.push(`/dashboard/orders?customerId=${customerId}`);
+  };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Staff Members</CardTitle>
+        <CardTitle>Customers</CardTitle>
         <CardDescription>
-          A list of all staff and owners associated with your shop.
+          A list of all customers associated with your shop. Click a customer to view their bill.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -70,15 +76,15 @@ export default function StaffPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={3} className="text-center">Loading staff...</TableCell></TableRow>}
-            {!isLoading && staff?.length === 0 && (
-                 <TableRow><TableCell colSpan={3} className="text-center">No staff found for this shop.</TableCell></TableRow>
+            {isLoading && <TableRow><TableCell colSpan={3} className="text-center">Loading customers...</TableCell></TableRow>}
+            {!isLoading && customers?.length === 0 && (
+                 <TableRow><TableCell colSpan={3} className="text-center">No customers found for this shop.</TableCell></TableRow>
             )}
-            {!isLoading && staff?.map((member) => (
-              <TableRow key={member.id}>
-                <TableCell className="font-medium">{member.name}</TableCell>
-                <TableCell>{member.email}</TableCell>
-                <TableCell>{member.role}</TableCell>
+            {!isLoading && customers?.map((customer) => (
+              <TableRow key={customer.id} onClick={() => handleCustomerClick(customer.id)} className="cursor-pointer">
+                <TableCell className="font-medium">{customer.name}</TableCell>
+                <TableCell>{customer.email}</TableCell>
+                <TableCell>{customer.role}</TableCell>
               </TableRow>
             ))}
           </TableBody>
