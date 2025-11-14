@@ -90,6 +90,8 @@ export default function OrderDetailsPage() {
     }
   };
   
+  const productTotal = order.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+
   return (
     <Card className="max-w-4xl mx-auto">
       <CardHeader className="flex flex-row items-start justify-between">
@@ -140,6 +142,10 @@ export default function OrderDetailsPage() {
         <Separator className="my-4" />
         <div className="grid gap-2 text-right w-full max-w-sm ml-auto">
             <div className="flex justify-between">
+                <span className="text-muted-foreground">Product Total</span>
+                <span>PKR {productTotal.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
                 <span className="text-muted-foreground">Subtotal</span>
                 <span>PKR {order.subtotal.toLocaleString()}</span>
             </div>
@@ -160,4 +166,3 @@ export default function OrderDetailsPage() {
     </Card>
   );
 }
-
