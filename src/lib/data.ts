@@ -9,7 +9,6 @@ export type Product = {
   id: string;
   name: string;
   category: string;
-  imageUrlId: string;
   description?: string;
   images?: string[];
   variants?: ProductVariant[];
