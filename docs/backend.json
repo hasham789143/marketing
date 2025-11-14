@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Shop": {
@@ -112,7 +113,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Product",
       "type": "object",
-      "description": "Represents a product offered by a shop.",
+      "description": "Represents a product offered by a shop, which can have multiple variants.",
       "properties": {
         "productId": {
           "type": "string",
@@ -130,21 +131,16 @@
           "type": "string",
           "description": "Description of the product."
         },
-        "sku": {
-          "type": "string",
-          "description": "Stock keeping unit of the product."
-        },
         "category": {
           "type": "string",
           "description": "Category of the product."
         },
-        "price": {
-          "type": "number",
-          "description": "Price of the product."
-        },
-        "stockQty": {
-          "type": "number",
-          "description": "Stock quantity of the product."
+        "variants": {
+          "type": "array",
+          "description": "Array of product variants (e.g., different sizes, colors).",
+          "items": {
+            "$ref": "#/backend/entities/ProductVariant"
+          }
         },
         "images": {
           "type": "array",
@@ -169,14 +165,33 @@
         "shopId",
         "name",
         "description",
-        "sku",
         "category",
-        "price",
-        "stockQty",
+        "variants",
         "images",
         "createdAt",
         "updatedAt"
       ]
+    },
+    "ProductVariant": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ProductVariant",
+      "type": "object",
+      "description": "Represents a specific variant of a product.",
+      "properties": {
+        "sku": {
+          "type": "string",
+          "description": "Stock keeping unit of the product variant."
+        },
+        "price": {
+          "type": "number",
+          "description": "Price of the product variant."
+        },
+        "stockQty": {
+          "type": "number",
+          "description": "Stock quantity of the product variant."
+        }
+      },
+      "required": ["sku", "price", "stockQty"]
     },
     "Order": {
       "$schema": "http://json-schema.org/draft-07/schema#",
