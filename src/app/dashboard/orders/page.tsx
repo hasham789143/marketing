@@ -1,3 +1,4 @@
+'use client';
 import {
   Card,
   CardContent,
@@ -21,13 +22,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { orders } from '@/lib/data';
+import { Order } from '@/lib/data';
 import { MoreHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 export default function OrdersPage() {
+  const firestore = useFirestore();
+  const ordersRef = useMemoFirebase(() => collection(firestore, 'shops/SHOP-X8Y1/orders'), [firestore]);
+  const { data: orders, isLoading } = useCollection<Order>(ordersRef);
 
-  const getStatusVariant = (status: (typeof orders)[0]['status']) => {
+  const getStatusVariant = (status: Order['status']) => {
     switch (status) {
       case 'Pending':
         return 'secondary';
@@ -68,7 +74,8 @@ export default function OrdersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {orders.map((order) => (
+            {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Loading orders...</TableCell></TableRow>}
+            {!isLoading && orders?.map((order) => (
               <TableRow key={order.id}>
                 <TableCell className="font-medium">{order.id}</TableCell>
                 <TableCell>{order.customer}</TableCell>

@@ -1,3 +1,4 @@
+'use client';
 import type { ReactNode } from 'react';
 import {
   SidebarProvider,
@@ -12,8 +13,20 @@ import { Nav } from '@/components/nav';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Bot, LogOut } from 'lucide-react';
+import { useAuth } from '@/firebase';
+import { signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
+  const auth = useAuth();
+  const router = useRouter();
+
+  const handleSignOut = () => {
+    signOut(auth).then(() => {
+      router.push('/');
+    });
+  };
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen">
@@ -31,11 +44,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <Nav />
           </SidebarContent>
           <SidebarFooter>
-             <Button asChild variant="ghost" className="w-full justify-start gap-2">
-                <Link href="/">
-                    <LogOut/>
-                    <span className="duration-200 group-data-[collapsible=icon]:hidden">Logout</span>
-                </Link>
+             <Button variant="ghost" className="w-full justify-start gap-2" onClick={handleSignOut}>
+                <LogOut/>
+                <span className="duration-200 group-data-[collapsible=icon]:hidden">Logout</span>
              </Button>
           </SidebarFooter>
         </Sidebar>

@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { useToast } from '@/hooks/use-toast';
 import { generateReportAction } from '@/app/actions';
-import { staffActivityLogs, type ActivityLog } from '@/lib/data';
+import { ActivityLog } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -21,9 +21,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Bot, Loader2, Sparkles } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -47,6 +48,10 @@ export function StaffActivity() {
     timestamp: null,
   });
   const prevStateRef = useRef(state);
+
+  const firestore = useFirestore();
+  const logsRef = useMemoFirebase(() => collection(firestore, 'audit_logs'), [firestore]);
+  const { data: staffActivityLogs, isLoading } = useCollection<ActivityLog>(logsRef);
 
   useEffect(() => {
     if (state.timestamp !== prevStateRef.current.timestamp) {
@@ -81,7 +86,8 @@ export function StaffActivity() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {staffActivityLogs.map((log: ActivityLog) => (
+                {isLoading && <TableRow><TableCell colSpan={3} className="text-center">Loading activities...</TableCell></TableRow>}
+                {!isLoading && staffActivityLogs?.map((log: ActivityLog) => (
                   <TableRow key={log.id}>
                     <TableCell>
                       <div className="font-medium">{log.staffName}</div>

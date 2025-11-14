@@ -2,7 +2,10 @@
 'use server';
 
 import { getStaffActivityInsights } from '@/ai/flows/staff-activity-insights';
-import { staffActivityLogs } from '@/lib/data';
+import { collection, getDocs } from 'firebase/firestore';
+import { getSdks } from '@/firebase';
+import { initializeApp, getApps } from 'firebase/app';
+import { firebaseConfig } from '@/firebase/config';
 
 export async function generateReportAction(
   prevState: {
@@ -13,6 +16,14 @@ export async function generateReportAction(
   formData: FormData
 ) {
   try {
+    if (!getApps().length) {
+      initializeApp(firebaseConfig);
+    }
+    const { firestore } = getSdks(getApps()[0]);
+    const logsRef = collection(firestore, 'audit_logs');
+    const logsSnapshot = await getDocs(logsRef);
+    const staffActivityLogs = logsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+
     const logs = JSON.stringify(staffActivityLogs.map(log => ({ ...log, timestamp: undefined })));
     
     const result = await getStaffActivityInsights({

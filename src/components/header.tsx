@@ -23,12 +23,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { staff } from '@/lib/data';
+import { useUser } from '@/firebase';
 
 export function Header() {
   const pathname = usePathname();
-  const owner = staff.find(s => s.role === 'Owner');
-  const avatar = PlaceHolderImages.find(p => p.id === owner?.avatarUrlId);
+  const { user } = useUser();
+  const avatar = PlaceHolderImages.find(p => p.id === 'avatar-1');
   
   const getBreadcrumbs = () => {
     const segments = pathname.split('/').filter(Boolean);
@@ -73,8 +73,8 @@ export function Header() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="rounded-full">
               <Avatar className="h-8 w-8">
-                {avatar && <AvatarImage src={avatar.imageUrl} alt={owner?.name} />}
-                <AvatarFallback>{owner?.name.charAt(0)}</AvatarFallback>
+                {avatar && <AvatarImage src={user?.photoURL || avatar.imageUrl} alt={user?.displayName || ''} />}
+                <AvatarFallback>{user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>

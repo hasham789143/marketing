@@ -1,3 +1,4 @@
+'use client';
 import Image from 'next/image';
 import {
   Card,
@@ -22,11 +23,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { products } from '@/lib/data';
+import { Product } from '@/lib/data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 export default function ProductsPage() {
+
+  const firestore = useFirestore();
+  const productsRef = useMemoFirebase(() => collection(firestore, 'shops/SHOP-X8Y1/products'), [firestore]);
+  const { data: products, isLoading } = useCollection<Product>(productsRef);
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -59,7 +67,8 @@ export default function ProductsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {products.map((product) => {
+            {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Loading products...</TableCell></TableRow>}
+            {!isLoading && products?.map((product) => {
               const image = PlaceHolderImages.find(p => p.id === product.imageUrlId);
               return (
                 <TableRow key={product.id}>

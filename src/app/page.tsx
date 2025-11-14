@@ -1,12 +1,34 @@
+'use client';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { ArrowRight, BarChart, Box, DollarSign } from 'lucide-react';
+import { useAuth, useUser } from '@/firebase';
+import { useEffect } from 'react';
+import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
+import { useRouter } from 'next/navigation';
+
 
 export default function Home() {
   const heroImage = PlaceHolderImages.find(p => p.id === 'landing-hero');
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!user && !isUserLoading) {
+      initiateAnonymousSignIn(auth);
+    }
+  }, [user, isUserLoading, auth]);
+
+  useEffect(() => {
+    if(user) {
+      router.push('/dashboard');
+    }
+  }, [user, router]);
+
 
   const features = [
     {
@@ -25,6 +47,14 @@ export default function Home() {
       description: 'Leverage AI-powered analytics to gain valuable insights into your staff\'s activity.',
     },
   ];
+
+  if (isUserLoading || user) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background">
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
