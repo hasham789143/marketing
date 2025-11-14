@@ -1,4 +1,3 @@
-
 'use client';
 import {
   Card,
@@ -21,15 +20,18 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Order } from '@/lib/data';
 import { MoreHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, updateDoc } from 'firebase/firestore';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useToast } from '@/hooks/use-toast';
 
 
 interface UserData {
@@ -41,6 +43,7 @@ export default function OrdersPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const searchParams = useSearchParams();
+  const { toast } = useToast();
   
   const adminSelectedShopId = searchParams.get('shopId');
 
@@ -77,18 +80,39 @@ export default function OrdersPage() {
     }
   }
 
+  const handleStatusUpdate = async (orderId: string, newStatus: Order['status']) => {
+    if (!shopId) return;
+    const orderDocRef = doc(firestore, `shops/${shopId}/orders`, orderId);
+    try {
+        await updateDoc(orderDocRef, { status: newStatus });
+        toast({
+            title: "Order Status Updated",
+            description: `Order ${orderId} has been updated to "${newStatus}".`,
+        });
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Update Failed',
+            description: `Could not update order status: ${error.message}`,
+        });
+    }
+  };
+
   const isLoading = isUserDataLoading || areOrdersLoading;
-  const isOwner = userData?.role === 'owner';
+  const isOwnerOrStaff = userData?.role === 'owner' || userData?.role === 'staff';
   const isAdmin = userData?.role === 'admin';
+  const canManageOrders = isOwnerOrStaff || isAdmin;
+
+  const orderStatuses: Order['status'][] = ['Pending', 'Accepted', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'];
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Orders</CardTitle>
         <CardDescription>
-          {isOwner && "A list of all recent orders from your shop."}
+          {isOwnerOrStaff && "A list of all recent orders from your shop."}
           {isAdmin && (shopId ? `Viewing orders for shop: ${shopId}`: "Select a shop to view its orders.")}
-          {!isOwner && !isAdmin && "Viewing orders for your shop."}
+          {!isOwnerOrStaff && !isAdmin && "Viewing orders for your shop."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -101,18 +125,20 @@ export default function OrdersPage() {
               <TableHead>Status</TableHead>
               <TableHead>Payment</TableHead>
               <TableHead className="text-right">Total</TableHead>
-              <TableHead>
-                <span className="sr-only">Actions</span>
-              </TableHead>
+              {canManageOrders && (
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Loading orders...</TableCell></TableRow>}
+            {isLoading && <TableRow><TableCell colSpan={canManageOrders ? 7 : 6} className="text-center">Loading orders...</TableCell></TableRow>}
             {!isLoading && !shopId && isAdmin && (
-                 <TableRow><TableCell colSpan={7} className="text-center">Please select a shop from the <Link href="/dashboard/shops" className="underline">shops page</Link> to view orders.</TableCell></TableRow>
+                 <TableRow><TableCell colSpan={canManageOrders ? 7 : 6} className="text-center">Please select a shop from the <Link href="/dashboard/shops" className="underline">shops page</Link> to view orders.</TableCell></TableRow>
             )}
              {!isLoading && shopId && orders?.length === 0 && (
-                <TableRow><TableCell colSpan={7} className="text-center">No orders found for this shop.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={canManageOrders ? 7 : 6} className="text-center">No orders found for this shop.</TableCell></TableRow>
             )}
             {!isLoading && shopId && orders?.map((order) => (
               <TableRow key={order.id}>
@@ -128,25 +154,37 @@ export default function OrdersPage() {
                 <TableCell className="text-right">
                   PKR {order.total.toLocaleString()}
                 </TableCell>
-                <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          aria-haspopup="true"
-                          size="icon"
-                          variant="ghost"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>View Details</DropdownMenuItem>
-                        <DropdownMenuItem>Update Status</DropdownMenuItem>
-                        <DropdownMenuItem>Contact Customer</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                </TableCell>
+                {canManageOrders && (
+                    <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              aria-haspopup="true"
+                              size="icon"
+                              variant="ghost"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Toggle menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem>View Details</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel>Update Status</DropdownMenuLabel>
+                            {orderStatuses.map((status) => (
+                                <DropdownMenuItem 
+                                    key={status}
+                                    onClick={() => handleStatusUpdate(order.id, status)}
+                                    disabled={order.status === status}
+                                >
+                                    {order.status === status ? `✓ ${status}` : `Mark as ${status}`}
+                                </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                    </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
