@@ -29,7 +29,7 @@ import { MoreHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, updateDoc } from 'firebase/firestore';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 
@@ -43,6 +43,7 @@ export default function OrdersPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { toast } = useToast();
   
   const adminSelectedShopId = searchParams.get('shopId');
@@ -169,7 +170,9 @@ export default function OrdersPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem>View Details</DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/dashboard/orders/${order.id}`}>View Details</Link>
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuLabel>Update Status</DropdownMenuLabel>
                             {orderStatuses.map((status) => (
