@@ -31,6 +31,7 @@ const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Invalid email address.' }),
   password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
+  shopId: z.string().optional(),
 });
 
 export default function RegisterPage() {
@@ -45,6 +46,7 @@ export default function RegisterPage() {
       name: '',
       email: '',
       password: '',
+      shopId: '',
     },
   });
 
@@ -62,10 +64,11 @@ export default function RegisterPage() {
         email: values.email,
         phone: '', // Initially empty
         role: role, 
+        shopId: values.shopId || null,
         createdAt: new Date().toISOString(),
       });
       
-      router.push('/dashboard');
+      router.push('/login');
     } catch (error: any) {
       toast({
         variant: 'destructive',
@@ -80,7 +83,7 @@ export default function RegisterPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Create an Account</CardTitle>
-          <CardDescription>Join ShopSync to manage your business.</CardDescription>
+          <CardDescription>Join ShopSync to manage your business or shop with your favorite store.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -124,7 +127,22 @@ export default function RegisterPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full">Create Account</Button>
+               <FormField
+                control={form.control}
+                name="shopId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Shop ID (Optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter the Shop ID to connect" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? 'Creating Account...' : 'Create Account'}
+              </Button>
             </form>
           </Form>
            <p className="mt-4 text-center text-sm text-muted-foreground">

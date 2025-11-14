@@ -19,6 +19,7 @@ import {
   User as UserIcon,
   Package,
   Users2,
+  ShoppingBag,
 } from 'lucide-react';
 import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -37,6 +38,7 @@ const shopNavItems = [
 ];
 
 const customerNavItems = [
+    { href: '/customer/products', label: 'Browse Products', icon: ShoppingBag },
     { href: '/customer/orders', label: 'My Orders', icon: Package },
     { href: '/customer/profile', label: 'Profile', icon: UserIcon },
 ];
@@ -90,7 +92,13 @@ export function Nav() {
       navItems = shopNavItems;
   } else {
     // Fallback for users with no role or customers visiting dashboard URLs
-    return null;
+    // who might not have a user doc yet
+    if (pathname.startsWith('/customer')) {
+        navItems = customerNavItems;
+        bottomNavItems = [];
+    } else {
+        return null;
+    }
   }
 
   const finalNavItems = [...navItems, ...bottomNavItems];
@@ -101,7 +109,7 @@ export function Nav() {
         <SidebarMenuItem key={item.href}>
           <SidebarMenuButton
             asChild
-            isActive={pathname.startsWith(item.href) && (item.href === '/dashboard' ? pathname === item.href : true)}
+            isActive={pathname.startsWith(item.href) && (item.href === '/dashboard' || item.href === '/customer' ? pathname === item.href : true)}
             tooltip={item.label}
           >
             <Link href={item.href}>

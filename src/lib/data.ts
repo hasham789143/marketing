@@ -6,6 +6,9 @@ export type Product = {
   price: number;
   stock: number;
   imageUrlId: string;
+  description?: string;
+  images?: string[];
+  stockQty?: number;
 };
 
 export type Order = {
