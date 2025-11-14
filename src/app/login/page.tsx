@@ -20,8 +20,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useAuth } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -33,6 +34,7 @@ const formSchema = z.object({
 
 export default function LoginPage() {
   const auth = useAuth();
+  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -46,8 +48,46 @@ export default function LoginPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      await signInWithEmailAndPassword(auth, values.email, values.password);
-      router.push('/dashboard');
+      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+      const user = userCredential.user;
+
+      if (user) {
+        const userDocRef = doc(firestore, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const role = userData.role;
+
+          toast({
+            title: 'Login Successful',
+            description: `Welcome back! You are logged in as: ${role}.`,
+          });
+          
+          // Redirect based on role
+          switch (role) {
+            case 'admin':
+              router.push('/dashboard/shops');
+              break;
+            case 'owner':
+            case 'staff':
+              router.push('/dashboard');
+              break;
+            case 'customer':
+              router.push('/customer');
+              break;
+            default:
+              router.push('/'); // Fallback to home page
+          }
+        } else {
+            // If user doc doesn't exist, treat as a customer
+            toast({
+                title: 'Login Successful',
+                description: `Welcome back!`,
+            });
+            router.push('/customer');
+        }
+      }
     } catch (error: any) {
       toast({
         variant: 'destructive',

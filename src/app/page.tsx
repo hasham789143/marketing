@@ -5,22 +5,49 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { ArrowRight, BarChart, Box, DollarSign } from 'lucide-react';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { doc, getDoc } from 'firebase/firestore';
 
 
 export default function Home() {
   const heroImage = PlaceHolderImages.find(p => p.id === 'landing-hero');
   const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const firestore = useFirestore();
 
 
   useEffect(() => {
-    if(user) {
-      router.push('/dashboard');
+    const checkUserRoleAndRedirect = async () => {
+        if (user) {
+            const userDocRef = doc(firestore, 'users', user.uid);
+            const userDoc = await getDoc(userDocRef);
+            if (userDoc.exists()) {
+                const role = userDoc.data().role;
+                switch (role) {
+                    case 'admin':
+                        router.push('/dashboard/shops');
+                        break;
+                    case 'owner':
+                    case 'staff':
+                        router.push('/dashboard');
+                        break;
+                    case 'customer':
+                        router.push('/customer');
+                        break;
+                    default:
+                        router.push('/login');
+                }
+            } else {
+                 router.push('/customer');
+            }
+        }
     }
-  }, [user, router]);
+    if (!isUserLoading) {
+        checkUserRoleAndRedirect();
+    }
+  }, [user, isUserLoading, firestore, router]);
 
 
   const features = [
@@ -41,7 +68,7 @@ export default function Home() {
     },
   ];
 
-  if (isUserLoading) {
+  if (isUserLoading || user) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background">
         <p>Loading...</p>

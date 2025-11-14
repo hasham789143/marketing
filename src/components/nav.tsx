@@ -14,25 +14,33 @@ import {
   Users,
   Settings,
   Store,
+  User as UserIcon,
+  Package
 } from 'lucide-react';
 import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { SidebarMenuSkeleton } from '@/components/ui/sidebar';
 
-const baseNavItems = [
+const adminNavItems = [
+    { href: '/dashboard/shops', label: 'Shops', icon: Store },
+];
+
+const shopNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/orders', label: 'Orders', icon: ShoppingCart },
   { href: '/dashboard/products', label: 'Products', icon: Box },
   { href: '/dashboard/staff', label: 'Staff', icon: Users },
 ];
 
-const adminNavItems = [
-    { href: '/dashboard/shops', label: 'Shops', icon: Store },
+const customerNavItems = [
+    { href: '/customer/orders', label: 'My Orders', icon: Package },
+    { href: '/customer/profile', label: 'Profile', icon: UserIcon },
 ];
 
-const bottomNavItems = [
+const commonBottomNav = [
     { href: '/dashboard/settings', label: 'Settings', icon: Settings },
-]
+];
+
 
 export function Nav() {
   const pathname = usePathname();
@@ -40,9 +48,9 @@ export function Nav() {
   const firestore = useFirestore();
 
   const userDocRef = useMemoFirebase(() => {
-    if (!user || isUserLoading) return null;
+    if (!user) return null;
     return doc(firestore, 'users', user.uid);
-  }, [user, isUserLoading, firestore]);
+  }, [user, firestore]);
 
   const { data: userData, isLoading: isUserDataLoading } = useDoc<{ role: string }>(userDocRef);
 
@@ -64,9 +72,20 @@ export function Nav() {
       )
   }
 
-  const isAdmin = userData?.role === 'admin';
+  const role = userData?.role;
 
-  const navItems = isAdmin ? [...baseNavItems, ...adminNavItems] : [...baseNavItems];
+  let navItems = [];
+  let bottomNavItems = commonBottomNav;
+
+  if (pathname.startsWith('/customer')) {
+      navItems = customerNavItems;
+      bottomNavItems = []; // No settings for customers in this sidebar
+  } else if (role === 'admin') {
+      navItems = [...shopNavItems.slice(0,1), ...adminNavItems, ...shopNavItems.slice(1)];
+  } else if (role === 'owner' || role === 'staff') {
+      navItems = shopNavItems;
+  }
+
   const finalNavItems = [...navItems, ...bottomNavItems];
 
   return (
