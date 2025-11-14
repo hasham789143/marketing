@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -6,6 +7,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuSkeleton,
 } from '@/components/ui/sidebar';
 import {
   LayoutDashboard,
@@ -15,14 +17,16 @@ import {
   Settings,
   Store,
   User as UserIcon,
-  Package
+  Package,
+  Users2,
 } from 'lucide-react';
 import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { SidebarMenuSkeleton } from '@/components/ui/sidebar';
+
 
 const adminNavItems = [
     { href: '/dashboard/shops', label: 'Shops', icon: Store },
+    { href: '/dashboard/users', label: 'Users', icon: Users2 },
 ];
 
 const shopNavItems = [
@@ -84,6 +88,9 @@ export function Nav() {
       navItems = [...shopNavItems.slice(0,1), ...adminNavItems, ...shopNavItems.slice(1)];
   } else if (role === 'owner' || role === 'staff') {
       navItems = shopNavItems;
+  } else {
+    // Fallback for users with no role or customers visiting dashboard URLs
+    return null;
   }
 
   const finalNavItems = [...navItems, ...bottomNavItems];
@@ -107,3 +114,4 @@ export function Nav() {
     </SidebarMenu>
   );
 }
+
