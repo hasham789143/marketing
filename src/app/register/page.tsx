@@ -27,7 +27,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { useDebounce } from 'use-debounce';
+import { useDebouncedCallback } from 'use-debounce';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CheckCircle, Info, Loader2 } from 'lucide-react';
 
@@ -48,7 +48,6 @@ export default function RegisterPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [shopIdInput, setShopIdInput] = useState('');
-  const [debouncedShopId] = useDebounce(shopIdInput, 500);
   const [shopName, setShopName] = useState<string | null>(null);
   const [isCheckingShop, setIsCheckingShop] = useState(false);
   const [shopError, setShopError] = useState<string | null>(null);
@@ -64,33 +63,34 @@ export default function RegisterPage() {
     },
   });
 
-  useEffect(() => {
-    const checkShopId = async () => {
-        if (debouncedShopId) {
-            setIsCheckingShop(true);
-            setShopName(null);
-            setShopError(null);
-            try {
-                const shopDocRef = doc(firestore, 'shops', debouncedShopId);
-                const shopDoc = await getDoc(shopDocRef);
-                if (shopDoc.exists()) {
-                    const shopData = shopDoc.data() as ShopData;
-                    setShopName(shopData.shopName);
-                } else {
-                    setShopError('No shop found with this ID.');
-                }
-            } catch (error) {
-                setShopError('Failed to verify Shop ID.');
-            } finally {
-                setIsCheckingShop(false);
+  const debouncedCheckShopId = useDebouncedCallback(async (shopId: string) => {
+    if (shopId) {
+        setIsCheckingShop(true);
+        setShopName(null);
+        setShopError(null);
+        try {
+            const shopDocRef = doc(firestore, 'shops', shopId);
+            const shopDoc = await getDoc(shopDocRef);
+            if (shopDoc.exists()) {
+                const shopData = shopDoc.data() as ShopData;
+                setShopName(shopData.shopName);
+            } else {
+                setShopError('No shop found with this ID.');
             }
-        } else {
-            setShopName(null);
-            setShopError(null);
+        } catch (error) {
+            setShopError('Failed to verify Shop ID.');
+        } finally {
+            setIsCheckingShop(false);
         }
-    };
-    checkShopId();
-  }, [debouncedShopId, firestore]);
+    } else {
+        setShopName(null);
+        setShopError(null);
+    }
+  }, 500);
+
+  useEffect(() => {
+    debouncedCheckShopId(shopIdInput);
+  }, [shopIdInput, debouncedCheckShopId]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (values.shopId && !shopName) {
