@@ -1,0 +1,479 @@
+{
+  "entities": {
+    "Shop": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Shop",
+      "type": "object",
+      "description": "Represents a shop registered on the platform.",
+      "properties": {
+        "shopId": {
+          "type": "string",
+          "description": "Unique identifier for the shop."
+        },
+        "shopName": {
+          "type": "string",
+          "description": "Name of the shop."
+        },
+        "ownerUserId": {
+          "type": "string",
+          "description": "Reference to the User who owns the shop. (Relationship: Shop 1:1 User)"
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the shop.",
+          "format": "email"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone number of the shop."
+        },
+        "deliveryChargeDefault": {
+          "type": "number",
+          "description": "Default delivery charge for the shop."
+        },
+        "currency": {
+          "type": "string",
+          "description": "Currency used by the shop (e.g., USD, EUR)."
+        },
+        "taxRate": {
+          "type": "number",
+          "description": "Tax rate applied by the shop."
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the shop (active, pending, blocked)."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the shop was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "shopId",
+        "shopName",
+        "ownerUserId",
+        "email",
+        "phone",
+        "deliveryChargeDefault",
+        "currency",
+        "taxRate",
+        "status",
+        "createdAt"
+      ]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the platform (shop owner, staff, or customer).",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Unique identifier for the user."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone number of the user."
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the user (owner, staff, customer)."
+        },
+        "shopId": {
+          "type": "string",
+          "description": "Reference to the Shop the user belongs to. Nullable for customers. (Relationship: Shop 1:N User)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the user was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "userId",
+        "name",
+        "email",
+        "phone",
+        "role",
+        "createdAt"
+      ]
+    },
+    "Product": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Product",
+      "type": "object",
+      "description": "Represents a product offered by a shop.",
+      "properties": {
+        "productId": {
+          "type": "string",
+          "description": "Unique identifier for the product."
+        },
+        "shopId": {
+          "type": "string",
+          "description": "Reference to the Shop that offers the product. (Relationship: Shop 1:N Product)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the product."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the product."
+        },
+        "sku": {
+          "type": "string",
+          "description": "Stock keeping unit of the product."
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of the product."
+        },
+        "price": {
+          "type": "number",
+          "description": "Price of the product."
+        },
+        "stockQty": {
+          "type": "number",
+          "description": "Stock quantity of the product."
+        },
+        "images": {
+          "type": "array",
+          "description": "Array of URLs to product images.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the product was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the product was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "productId",
+        "shopId",
+        "name",
+        "description",
+        "sku",
+        "category",
+        "price",
+        "stockQty",
+        "images",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Order": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Order",
+      "type": "object",
+      "description": "Represents an order placed by a customer.",
+      "properties": {
+        "orderId": {
+          "type": "string",
+          "description": "Unique identifier for the order."
+        },
+        "shopId": {
+          "type": "string",
+          "description": "Reference to the Shop the order was placed with. (Relationship: Shop 1:N Order)"
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Reference to the User who placed the order. (Relationship: User 1:N Order)"
+        },
+        "items": {
+          "type": "array",
+          "description": "Array of items in the order. Each item contains product details and quantity.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "subtotal": {
+          "type": "number",
+          "description": "Subtotal of the order (excluding tax and delivery charge)."
+        },
+        "tax": {
+          "type": "number",
+          "description": "Tax applied to the order."
+        },
+        "deliveryCharge": {
+          "type": "number",
+          "description": "Delivery charge for the order."
+        },
+        "discount": {
+          "type": "number",
+          "description": "Discount applied to the order."
+        },
+        "total": {
+          "type": "number",
+          "description": "Total amount of the order."
+        },
+        "orderStatus": {
+          "type": "string",
+          "description": "Status of the order (Pending, Accepted, Preparing, Out for Delivery, Delivered, Cancelled, Refunded)."
+        },
+        "paymentStatus": {
+          "type": "string",
+          "description": "Status of the payment for the order."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "Method of payment used for the order (Online Payment, COD)."
+        },
+        "deliveryAddress": {
+          "type": "string",
+          "description": "Delivery address for the order."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the order was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the order was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "orderId",
+        "shopId",
+        "customerId",
+        "items",
+        "subtotal",
+        "tax",
+        "deliveryCharge",
+        "discount",
+        "total",
+        "orderStatus",
+        "paymentStatus",
+        "paymentMethod",
+        "deliveryAddress",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Payment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Payment",
+      "type": "object",
+      "description": "Represents a payment made for an order.",
+      "properties": {
+        "paymentId": {
+          "type": "string",
+          "description": "Unique identifier for the payment."
+        },
+        "orderId": {
+          "type": "string",
+          "description": "Reference to the Order the payment is for. (Relationship: Order 1:1 Payment)"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Amount of the payment."
+        },
+        "method": {
+          "type": "string",
+          "description": "Payment method used (Card, Wallet, COD)."
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the payment."
+        },
+        "transactionId": {
+          "type": "string",
+          "description": "Transaction ID from the payment gateway."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the payment was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "paymentId",
+        "orderId",
+        "amount",
+        "method",
+        "status",
+        "transactionId",
+        "createdAt"
+      ]
+    },
+    "AuditLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AuditLog",
+      "type": "object",
+      "description": "Represents an audit log entry for tracking user activities.",
+      "properties": {
+        "logId": {
+          "type": "string",
+          "description": "Unique identifier for the audit log entry."
+        },
+        "actorUserId": {
+          "type": "string",
+          "description": "Reference to the User who performed the action. (Relationship: User 1:N AuditLog)"
+        },
+        "action": {
+          "type": "string",
+          "description": "Action performed by the user."
+        },
+        "objectType": {
+          "type": "string",
+          "description": "Type of object affected by the action (e.g., Product, Order)."
+        },
+        "objectId": {
+          "type": "string",
+          "description": "Identifier of the object affected by the action."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp when the action was performed.",
+          "format": "date-time"
+        },
+        "metadata": {
+          "type": "string",
+          "description": "Additional information about the action (e.g., details of the change)."
+        }
+      },
+      "required": [
+        "logId",
+        "actorUserId",
+        "action",
+        "objectType",
+        "objectId",
+        "timestamp",
+        "metadata"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/shops/{shopId}",
+        "definition": {
+          "entityName": "Shop",
+          "schema": {
+            "$ref": "#/backend/entities/Shop"
+          },
+          "description": "Stores shop information.  Includes denormalized data to avoid cross-collection `get()` calls.",
+          "params": [
+            {
+              "name": "shopId",
+              "description": "Unique identifier for the shop."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user information, including their role and shopId. This design facilitates role-based access control and ensures efficient user management.  Includes denormalized `shopId` from Shop.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/shops/{shopId}/products/{productId}",
+        "definition": {
+          "entityName": "Product",
+          "schema": {
+            "$ref": "#/backend/entities/Product"
+          },
+          "description": "Stores product information for each shop.",
+          "params": [
+            {
+              "name": "shopId",
+              "description": "Unique identifier for the shop."
+            },
+            {
+              "name": "productId",
+              "description": "Unique identifier for the product."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/shops/{shopId}/orders/{orderId}",
+        "definition": {
+          "entityName": "Order",
+          "schema": {
+            "$ref": "#/backend/entities/Order"
+          },
+          "description": "Stores order information for each shop.",
+          "params": [
+            {
+              "name": "shopId",
+              "description": "Unique identifier for the shop."
+            },
+            {
+              "name": "orderId",
+              "description": "Unique identifier for the order."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/payments/{paymentId}",
+        "definition": {
+          "entityName": "Payment",
+          "schema": {
+            "$ref": "#/backend/entities/Payment"
+          },
+          "description": "Stores payment information.  It is not a subcollection of orders for scalability.",
+          "params": [
+            {
+              "name": "paymentId",
+              "description": "Unique identifier for the payment."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/audit_logs/{logId}",
+        "definition": {
+          "entityName": "AuditLog",
+          "schema": {
+            "$ref": "#/backend/entities/AuditLog"
+          },
+          "description": "Stores audit logs for tracking user activities.",
+          "params": [
+            {
+              "name": "logId",
+              "description": "Unique identifier for the audit log entry."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is designed to support a multi-shop, multi-user application with features like shop registration, product and order management, staff activity logging, and reporting. The design prioritizes authorization independence by denormalizing authorization data to avoid `get()` calls in security rules, and it ensures clear segregation of data for different access needs. \n\nAuthorization Independence is achieved through denormalization. For instance, the `users/{userId}` collection, intended for user data, includes the `shopId` field, referencing the shop to which the user belongs. This duplication of the relationship eliminates the need to perform a `get()` operation to verify shop information on a user document, improving authorization independence.\n\nTo support the QAPs (Rules are not Filters) principle, we utilize structural segregation and membership maps:\n\n*   **Shops and Products:** The `/shops/{shopId}` collection stores shop-related data. The `/shops/{shopId}/products/{productId}` subcollection stores products.  This allows shop owners to manage their own products without needing access to other shops' data.\n*   **Users:** The `/users/{userId}` collection houses user data, including the user's `role` and `shopId`. This design enables role-based access control for different functionalities.\n*   **Orders:** Orders are structured under the `/shops/{shopId}/orders/{orderId}` path, ensuring that orders are scoped to their respective shops. This facilitates secure `list` operations, as each shop can only access its own order data.\n*   **Audit Logs:** Audit logs are stored in the `/audit_logs/{logId}` collection, capturing user activities across the platform. Each log entry includes the `actorUserId`, `action`, `objectType`, and `objectId`, enabling detailed tracking of user actions and changes made to data.\n\nThis structure enables robust security rules, facilitating the implementation of DBAC (Database-Based Access Control) without relying on custom claims. Furthermore, it aligns with the principles of data clarity and predictability, using explicit state modeling (e.g., `orderStatus` field) and consistent naming conventions."
+  }
+}

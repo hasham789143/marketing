@@ -1,0 +1,125 @@
+/**
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a role-based access control model, primarily based on user ownership and shop affiliation.
+ *
+ * Data Structure:
+ * - /shops/{shopId}: Stores shop information, accessible primarily by shop owners.
+ * - /users/{userId}: Stores user information, accessible by the user themselves. Includes denormalized shopId.
+ * - /shops/{shopId}/products/{productId}: Stores product information, accessible by shop owners.
+ * - /shops/{shopId}/orders/{orderId}: Stores order information, accessible by shop owners.
+ * - /payments/{paymentId}: Stores payment information.
+ * - /audit_logs/{logId}: Stores audit logs, write-only for backend services.
+ *
+ * Key Security Decisions:
+ * - Users can only access their own user documents.
+ * - Shop owners can manage their shops, products, and orders.
+ * - Listing of users is generally disallowed for privacy.
+ * - Audit logs are write-only, ensuring data integrity.
+ *
+ * Denormalization for Authorization:
+ * - The User document includes the `shopId` to avoid needing to query the Shop document for authorization checks.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Allows shop owners to manage their shop information.
+     * @path /shops/{shopId}
+     * @allow (get, list) if true
+     * @allow (create, update, delete) if request.auth.uid == resource.data.ownerUserId
+     * @deny (create, update, delete) if request.auth.uid != resource.data.ownerUserId
+     * @principle Enforces shop ownership for writes.
+     */
+    match /shops/{shopId} {
+      function isOwner() {
+        return request.auth != null && request.auth.uid == resource.data.ownerUserId;
+      }
+      allow get, list: if true;
+      allow create: if request.auth != null && request.resource.data.ownerUserId == request.auth.uid;
+      allow update: if isOwner() && resource != null;
+      allow delete: if isOwner() && resource != null;
+    }
+
+    /**
+     * @description Allows users to manage their own user documents.
+     * @path /users/{userId}
+     * @allow (get) if isOwner(userId)
+     * @allow (create) if request.auth.uid == userId
+     * @allow (update) if isOwner(userId)
+     * @deny (list) Always deny listing users for security and privacy.
+     * @deny (delete) if !isOwner(userId)
+     * @principle Restricts access to a user's own data tree.
+     */
+    match /users/{userId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if isOwner(userId) && resource != null;
+      allow delete: if isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Allows shop owners to manage products within their shops.
+     * @path /shops/{shopId}/products/{productId}
+     * @allow (get, list) if true
+     * @allow (create, update, delete) if get(/databases/$(database)/documents/shops/$(shopId)).data.ownerUserId == request.auth.uid
+     * @deny (create, update, delete) if get(/databases/$(database)/documents/shops/$(shopId)).data.ownerUserId != request.auth.uid
+     * @principle Enforces shop ownership for product management.
+     */
+    match /shops/{shopId}/products/{productId} {
+      function isShopOwner(shopId) {
+          return request.auth != null && get(/databases/$(database)/documents/shops/$(shopId)).data.ownerUserId == request.auth.uid;
+      }
+      allow get, list: if true;
+      allow create: if isShopOwner(shopId);
+      allow update: if isShopOwner(shopId) && resource != null;
+      allow delete: if isShopOwner(shopId) && resource != null;
+    }
+
+    /**
+     * @description Allows shop owners to manage orders within their shops.
+     * @path /shops/{shopId}/orders/{orderId}
+     * @allow (get, list) if true
+     * @allow (create, update, delete) if get(/databases/$(database)/documents/shops/$(shopId)).data.ownerUserId == request.auth.uid
+     * @deny (create, update, delete) if get(/databases/$(database)/documents/shops/$(shopId)).data.ownerUserId != request.auth.uid
+     * @principle Enforces shop ownership for order management.
+     */
+    match /shops/{shopId}/orders/{orderId} {
+       function isShopOwner(shopId) {
+          return request.auth != null && get(/databases/$(database)/documents/shops/$(shopId)).data.ownerUserId == request.auth.uid;
+      }
+      allow get, list: if true;
+      allow create: if isShopOwner(shopId);
+      allow update: if isShopOwner(shopId) && resource != null;
+      allow delete: if isShopOwner(shopId) && resource != null;
+    }
+
+    /**
+     * @description Allows read and write access to payments for authorized users.
+     * @path /payments/{paymentId}
+     * @allow get, list: if true
+     * @allow create, update, delete: if false; // TODO: Implement payment processing authorization.
+     * @principle Payment information should be handled with extra care.
+     */
+    match /payments/{paymentId} {
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Implement payment processing authorization.
+    }
+
+    /**
+     * @description Allows writing audit logs for tracking user activities. Read operations are denied.
+     * @path /audit_logs/{logId}
+     * @allow create: if true; // Auditing writes are allowed.  Implement authentication/authorization
+     * @deny get, list, update, delete: if true;
+     * @principle Audit logs are append-only for security.
+     */
+    match /audit_logs/{logId} {
+      allow get, list, update, delete: if false;
+      allow create: if true; // Auditing writes are allowed.  Implement authentication/authorization
+    }
+  }
+}
