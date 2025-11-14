@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
+import { useEffect, useRef } from 'react';
+import { useActionState, useFormStatus } from 'react-dom';
 import { useToast } from '@/hooks/use-toast';
 import { generateReportAction } from '@/app/actions';
 import { ActivityLog } from '@/lib/data';
@@ -52,9 +52,9 @@ export function StaffActivity() {
   const firestore = useFirestore();
 
   const logsRef = useMemoFirebase(() => {
-    if (!user || !firestore) return null;
+    if (!user || isUserLoading || !firestore) return null;
     return collection(firestore, 'audit_logs');
-  }, [firestore, user]);
+  }, [firestore, user, isUserLoading]);
   
   const { data: staffActivityLogs, isLoading: areLogsLoading } = useCollection<ActivityLog>(logsRef);
 
