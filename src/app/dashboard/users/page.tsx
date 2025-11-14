@@ -23,8 +23,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, doc, updateDoc } from 'firebase/firestore';
+import { collection, doc, query, updateDoc, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 
 interface User {
   id: string;
@@ -37,7 +39,17 @@ interface User {
 export default function UsersPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
-  const usersRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+  const searchParams = useSearchParams();
+  const shopId = searchParams.get('shopId');
+
+  const usersRef = useMemoFirebase(() => {
+    const baseCollection = collection(firestore, 'users');
+    if (shopId) {
+      return query(baseCollection, where('shopId', '==', shopId));
+    }
+    return baseCollection;
+  }, [firestore, shopId]);
+  
   const { data: users, isLoading } = useCollection<User>(usersRef);
 
   const handleRoleChange = async (userId: string, newRole: string) => {
@@ -62,7 +74,9 @@ export default function UsersPage() {
       <CardHeader>
         <CardTitle>User Management</CardTitle>
         <CardDescription>
-          View and manage user roles across the platform.
+          {shopId 
+            ? <>Viewing users for shop: {shopId}. <Link href="/dashboard/users" className="underline">View all users</Link>.</>
+            : "View and manage user roles across the platform."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -77,6 +91,9 @@ export default function UsersPage() {
           </TableHeader>
           <TableBody>
             {isLoading && <TableRow><TableCell colSpan={4} className="text-center">Loading users...</TableCell></TableRow>}
+            {!isLoading && users?.length === 0 && (
+                 <TableRow><TableCell colSpan={4} className="text-center">No users found.</TableCell></TableRow>
+            )}
             {!isLoading && users?.map((user) => (
               <TableRow key={user.id}>
                 <TableCell className="font-medium">{user.name}</TableCell>

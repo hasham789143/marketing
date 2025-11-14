@@ -23,7 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Eye, MoreHorizontal, PlusCircle } from 'lucide-react';
+import { Eye, MoreHorizontal, PlusCircle, Users } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -63,6 +63,10 @@ export default function ShopsPage() {
 
   const handleViewOrders = (shopId: string) => {
     router.push(`/dashboard/orders?shopId=${shopId}`);
+  };
+
+  const handleViewUsers = (shopId: string) => {
+    router.push(`/dashboard/users?shopId=${shopId}`);
   };
 
 
@@ -114,6 +118,9 @@ export default function ShopsPage() {
                         </Button>
                          <Button variant="outline" size="sm" onClick={() => handleViewOrders(shop.id)}>
                              <Eye className="mr-2 h-3 w-3" /> Orders
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleViewUsers(shop.id)}>
+                             <Users className="mr-2 h-3 w-3" /> Users
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
