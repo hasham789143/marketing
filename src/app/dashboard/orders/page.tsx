@@ -88,7 +88,7 @@ export default function OrdersPage() {
         await updateDoc(orderDocRef, { status: newStatus });
         toast({
             title: "Order Status Updated",
-            description: `Order ${orderId} has been updated to "${newStatus}".`,
+            description: `Order status has been updated to "${newStatus}".`,
         });
     } catch (error: any) {
         toast({
@@ -99,12 +99,31 @@ export default function OrdersPage() {
     }
   };
 
+  const handlePaymentStatusUpdate = async (orderId: string, newStatus: Order['paymentStatus']) => {
+    if (!shopId) return;
+    const orderDocRef = doc(firestore, `shops/${shopId}/orders`, orderId);
+    try {
+        await updateDoc(orderDocRef, { paymentStatus: newStatus });
+        toast({
+            title: "Payment Status Updated",
+            description: `Payment status has been updated to "${newStatus}".`,
+        });
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Update Failed',
+            description: `Could not update payment status: ${error.message}`,
+        });
+    }
+  };
+
   const isLoading = isUserDataLoading || areOrdersLoading;
   const isOwnerOrStaff = userData?.role === 'owner' || userData?.role === 'staff';
   const isAdmin = userData?.role === 'admin';
   const canManageOrders = isOwnerOrStaff || isAdmin;
 
   const orderStatuses: Order['status'][] = ['Pending', 'Accepted', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'];
+  const paymentStatuses: Order['paymentStatus'][] = ['Paid', 'Unpaid'];
 
   return (
     <Card>
@@ -171,10 +190,10 @@ export default function OrdersPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuItem asChild>
-                              <Link href={`/dashboard/orders/${order.id}`}>View Details</Link>
+                              <Link href={`/dashboard/orders/${order.id}${isAdmin ? `?shopId=${shopId}` : ''}`}>View Details</Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuLabel>Update Status</DropdownMenuLabel>
+                            <DropdownMenuLabel>Update Order Status</DropdownMenuLabel>
                             {orderStatuses.map((status) => (
                                 <DropdownMenuItem 
                                     key={status}
@@ -182,6 +201,17 @@ export default function OrdersPage() {
                                     disabled={order.status === status}
                                 >
                                     {order.status === status ? `✓ ${status}` : `Mark as ${status}`}
+                                </DropdownMenuItem>
+                            ))}
+                             <DropdownMenuSeparator />
+                            <DropdownMenuLabel>Update Payment Status</DropdownMenuLabel>
+                             {paymentStatuses.map((status) => (
+                                <DropdownMenuItem 
+                                    key={status}
+                                    onClick={() => handlePaymentStatusUpdate(order.id, status)}
+                                    disabled={order.paymentStatus === status}
+                                >
+                                    {order.paymentStatus === status ? `✓ ${status}` : `Mark as ${status}`}
                                 </DropdownMenuItem>
                             ))}
                           </DropdownMenuContent>
