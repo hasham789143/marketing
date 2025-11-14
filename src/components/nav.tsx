@@ -33,6 +33,7 @@ const shopNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/orders', label: 'Orders', icon: ShoppingCart },
   { href: '/dashboard/products', label: 'Products', icon: Box },
+  { href: '/dashboard/customers', label: 'Customers', icon: Users },
 ];
 
 const customerNavItems = [
@@ -80,15 +81,17 @@ export function Nav() {
   const role = userData?.role;
 
   let navItems = [];
-  let bottomNavItems = commonBottomNav;
+  let bottomNavItems = [];
 
   if (pathname.startsWith('/customer')) {
       navItems = customerNavItems;
       bottomNavItems = []; // No settings for customers in this sidebar
   } else if (role === 'admin') {
       navItems = [...shopNavItems.slice(0,1), ...adminNavItems, ...shopNavItems.slice(1)];
+      bottomNavItems = commonBottomNav;
   } else if (role === 'owner' || role === 'staff') {
       navItems = shopNavItems;
+      bottomNavItems = commonBottomNav;
   } else {
     // Fallback for users with no role or customers visiting dashboard URLs
     // who might not have a user doc yet

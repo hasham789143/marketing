@@ -28,15 +28,20 @@ import { Order } from '@/lib/data';
 import { MoreHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, doc, updateDoc } from 'firebase/firestore';
+import { collection, doc, query, updateDoc, where } from 'firebase/firestore';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
+import { useEffect, useState } from 'react';
 
 
 interface UserData {
   role: string;
   shopId?: string;
+}
+
+interface CustomerData {
+    name: string;
 }
 
 export default function OrdersPage() {
@@ -47,6 +52,9 @@ export default function OrdersPage() {
   const { toast } = useToast();
   
   const adminSelectedShopId = searchParams.get('shopId');
+  const customerId = searchParams.get('customerId');
+  
+  const [customerName, setCustomerName] = useState<string | null>(null);
 
   const userDocRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -59,10 +67,30 @@ export default function OrdersPage() {
 
   const ordersRef = useMemoFirebase(() => {
     if (!shopId) return null;
-    return collection(firestore, `shops/${shopId}/orders`);
-  }, [firestore, shopId]);
+    const baseCollection = collection(firestore, `shops/${shopId}/orders`);
+    if (customerId) {
+        return query(baseCollection, where('customerId', '==', customerId));
+    }
+    return baseCollection;
+  }, [firestore, shopId, customerId]);
 
   const { data: orders, isLoading: areOrdersLoading } = useCollection<Order>(ordersRef);
+
+  const customerDocRef = useMemoFirebase(() => {
+    if (!customerId) return null;
+    return doc(firestore, 'users', customerId);
+  }, [firestore, customerId]);
+
+  const { data: customerData } = useDoc<CustomerData>(customerDocRef);
+
+  useEffect(() => {
+    if (customerData) {
+        setCustomerName(customerData.name);
+    } else {
+        setCustomerName(null);
+    }
+  }, [customerData]);
+
 
   const getStatusVariant = (status: Order['status']) => {
     switch (status) {
@@ -125,14 +153,23 @@ export default function OrdersPage() {
   const orderStatuses: Order['status'][] = ['Pending', 'Accepted', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'];
   const paymentStatuses: Order['paymentStatus'][] = ['Paid', 'Unpaid'];
 
+  const pageTitle = customerId ? `Bill for ${customerName || 'Customer'}` : "Orders";
+  const pageDescription = customerId 
+    ? `A list of all orders for this customer.`
+    : isOwnerOrStaff 
+    ? "A list of all recent orders from your shop."
+    : isAdmin 
+    ? (shopId ? `Viewing orders for shop: ${shopId}`: "Select a shop to view its orders.")
+    : "Viewing orders for your shop.";
+
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Orders</CardTitle>
+        <CardTitle>{pageTitle}</CardTitle>
         <CardDescription>
-          {isOwnerOrStaff && "A list of all recent orders from your shop."}
-          {isAdmin && (shopId ? `Viewing orders for shop: ${shopId}`: "Select a shop to view its orders.")}
-          {!isOwnerOrStaff && !isAdmin && "Viewing orders for your shop."}
+          {pageDescription}
+          {customerId && <Link href="/dashboard/orders" className="underline ml-2">View all orders</Link>}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -158,7 +195,7 @@ export default function OrdersPage() {
                  <TableRow><TableCell colSpan={canManageOrders ? 7 : 6} className="text-center">Please select a shop from the <Link href="/dashboard/shops" className="underline">shops page</Link> to view orders.</TableCell></TableRow>
             )}
              {!isLoading && shopId && orders?.length === 0 && (
-                <TableRow><TableCell colSpan={canManageOrders ? 7 : 6} className="text-center">No orders found for this shop.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={canManageOrders ? 7 : 6} className="text-center">No orders found.</TableCell></TableRow>
             )}
             {!isLoading && shopId && orders?.map((order) => (
               <TableRow key={order.id}>
