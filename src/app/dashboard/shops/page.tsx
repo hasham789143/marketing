@@ -1,3 +1,4 @@
+
 'use client';
 import {
   Card,
@@ -22,11 +23,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle } from 'lucide-react';
+import { Eye, MoreHorizontal, PlusCircle } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { format } from 'date-fns';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface Shop {
     id: string;
@@ -38,6 +40,7 @@ interface Shop {
 
 export default function ShopsPage() {
   const firestore = useFirestore();
+  const router = useRouter();
   const shopsRef = useMemoFirebase(() => collection(firestore, 'shops'), [firestore]);
   const { data: shops, isLoading } = useCollection<Shop>(shopsRef);
 
@@ -53,6 +56,15 @@ export default function ShopsPage() {
         return 'outline';
     }
   };
+
+  const handleViewProducts = (shopId: string) => {
+    router.push(`/dashboard/products?shopId=${shopId}`);
+  };
+
+  const handleViewOrders = (shopId: string) => {
+    router.push(`/dashboard/orders?shopId=${shopId}`);
+  };
+
 
   return (
     <Card>
@@ -96,23 +108,31 @@ export default function ShopsPage() {
                 </TableCell>
                 <TableCell>{format(new Date(shop.createdAt), 'PP')}</TableCell>
                 <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          aria-haspopup="true"
-                          size="icon"
-                          variant="ghost"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
+                    <div className="flex items-center justify-end gap-2">
+                         <Button variant="outline" size="sm" onClick={() => handleViewProducts(shop.id)}>
+                            <Eye className="mr-2 h-3 w-3" /> Products
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>View Details</DropdownMenuItem>
-                        <DropdownMenuItem>Manage Staff</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">Block Shop</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                         <Button variant="outline" size="sm" onClick={() => handleViewOrders(shop.id)}>
+                             <Eye className="mr-2 h-3 w-3" /> Orders
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              aria-haspopup="true"
+                              size="icon"
+                              variant="ghost"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Toggle menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>View Details</DropdownMenuItem>
+                            <DropdownMenuItem>Manage Staff</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive">Block Shop</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                 </TableCell>
               </TableRow>
             ))}

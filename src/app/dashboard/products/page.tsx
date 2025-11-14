@@ -1,3 +1,4 @@
+
 'use client';
 import Image from 'next/image';
 import {
@@ -26,15 +27,42 @@ import {
 import { Product } from '@/lib/data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+
+interface UserData {
+  role: string;
+  shopId?: string;
+}
 
 export default function ProductsPage() {
-
   const firestore = useFirestore();
-  const productsRef = useMemoFirebase(() => collection(firestore, 'shops/SHOP-X8Y1/products'), [firestore]);
-  const { data: products, isLoading } = useCollection<Product>(productsRef);
+  const { user } = useUser();
+  const searchParams = useSearchParams();
+  
+  const adminSelectedShopId = searchParams.get('shopId');
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userData, isLoading: isUserDataLoading } = useDoc<UserData>(userDocRef);
+
+  const shopId = userData?.role === 'admin' ? adminSelectedShopId : userData?.shopId;
+  
+  const productsRef = useMemoFirebase(() => {
+    if (!shopId) return null;
+    return collection(firestore, `shops/${shopId}/products`);
+  }, [firestore, shopId]);
+  
+  const { data: products, isLoading: areProductsLoading } = useCollection<Product>(productsRef);
+
+  const isLoading = isUserDataLoading || areProductsLoading;
+  const isOwner = userData?.role === 'owner';
+  const isAdmin = userData?.role === 'admin';
 
   return (
     <Card>
@@ -42,15 +70,19 @@ export default function ProductsPage() {
         <div>
           <CardTitle>Products</CardTitle>
           <CardDescription>
-            Manage your products and view their inventory.
+            {isOwner && "Manage your products and view their inventory."}
+            {isAdmin && (shopId ? `Viewing products for shop: ${shopId}`: "Select a shop to view its products.")}
+            {!isOwner && !isAdmin && "View products for your shop."}
           </CardDescription>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/products/add">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Product
-          </Link>
-        </Button>
+        {isOwner && (
+            <Button asChild>
+                <Link href="/dashboard/products/add">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Product
+                </Link>
+            </Button>
+        )}
       </CardHeader>
       <CardContent>
         <Table>
@@ -64,14 +96,22 @@ export default function ProductsPage() {
               <TableHead>Category</TableHead>
               <TableHead className="text-right">Price</TableHead>
               <TableHead className="text-right">Stock</TableHead>
-              <TableHead>
-                <span className="sr-only">Actions</span>
-              </TableHead>
+              {isOwner && (
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Loading products...</TableCell></TableRow>}
-            {!isLoading && products?.map((product) => {
+            {isLoading && <TableRow><TableCell colSpan={isOwner ? 7 : 6} className="text-center">Loading products...</TableCell></TableRow>}
+            {!isLoading && !shopId && isAdmin && (
+                 <TableRow><TableCell colSpan={isOwner ? 7 : 6} className="text-center">Please select a shop from the <Link href="/dashboard/shops" className="underline">shops page</Link> to view products.</TableCell></TableRow>
+            )}
+            {!isLoading && shopId && products?.length === 0 && (
+                <TableRow><TableCell colSpan={isOwner ? 7 : 6} className="text-center">No products found for this shop.</TableCell></TableRow>
+            )}
+            {!isLoading && shopId && products?.map((product) => {
               const image = PlaceHolderImages.find(p => p.id === product.imageUrlId);
               return (
                 <TableRow key={product.id}>
@@ -95,27 +135,29 @@ export default function ProductsPage() {
                   <TableCell className="text-right">
                     PKR {product.price.toLocaleString()}
                   </TableCell>
-                  <TableCell className="text-right">{product.stock}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          aria-haspopup="true"
-                          size="icon"
-                          variant="ghost"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+                  <TableCell className="text-right">{product.stockQty ?? product.stock}</TableCell>
+                  {isOwner && (
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            aria-haspopup="true"
+                            size="icon"
+                            variant="ghost"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Toggle menu</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>Edit</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive">
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}

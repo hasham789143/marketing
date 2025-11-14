@@ -16,32 +16,19 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { addDoc, collection } from 'firebase/firestore';
+import { useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { addDoc, collection, doc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
 
-interface Shop {
-    id: string;
-    shopName: string;
-}
-
 const formSchema = z.object({
-  shopId: z.string().min(1, { message: 'Please select a shop.' }),
   name: z.string().min(2, { message: 'Product name must be at least 2 characters.' }),
   sku: z.string().min(1, { message: 'SKU is required.' }),
   category: z.string().min(1, { message: 'Category is required.' }),
@@ -50,18 +37,27 @@ const formSchema = z.object({
   description: z.string().optional(),
 });
 
+interface UserData {
+    role: string;
+    shopId?: string;
+}
+
 export default function AddProductPage() {
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
+  const { user, isUserLoading } = useUser();
 
-  const shopsRef = useMemoFirebase(() => collection(firestore, 'shops'), [firestore]);
-  const { data: shops, isLoading: isLoadingShops } = useCollection<Shop>(shopsRef);
+  const userDocRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userData, isLoading: isUserDataLoading } = useDoc<UserData>(userDocRef);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      shopId: '',
       name: '',
       sku: '',
       category: '',
@@ -72,12 +68,21 @@ export default function AddProductPage() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!userData?.shopId) {
+        toast({
+            variant: 'destructive',
+            title: 'Operation Failed',
+            description: 'You are not associated with a shop.',
+        });
+        return;
+    }
+
     try {
-      const { shopId, ...productData } = values;
+      const shopId = userData.shopId;
       const productId = `PROD-${uuidv4().substring(0, 4).toUpperCase()}`;
 
       await addDoc(collection(firestore, `shops/${shopId}/products`), {
-        ...productData,
+        ...values,
         productId: productId,
         shopId: shopId,
         images: [], // Default to empty array
@@ -87,7 +92,7 @@ export default function AddProductPage() {
 
       toast({
         title: 'Product Added',
-        description: `Product "${values.name}" has been successfully added to the shop.`,
+        description: `Product "${values.name}" has been successfully added to your shop.`,
       });
 
       router.push('/dashboard/products');
@@ -101,40 +106,39 @@ export default function AddProductPage() {
     }
   }
 
+  const isLoading = isUserLoading || isUserDataLoading;
+  const isOwner = userData?.role === 'owner';
+
+  if (isLoading) {
+    return <div className="max-w-2xl mx-auto">Loading...</div>;
+  }
+
+  if (!isOwner) {
+    return (
+        <div className="max-w-2xl mx-auto">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Access Denied</CardTitle>
+                    <CardDescription>Only shop owners can add new products.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button onClick={() => router.back()}>Go Back</Button>
+                </CardContent>
+            </Card>
+        </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto">
         <Card>
             <CardHeader>
             <CardTitle>Add a New Product</CardTitle>
-            <CardDescription>Fill out the details to add a new product to a shop.</CardDescription>
+            <CardDescription>Fill out the details to add a new product to your shop.</CardDescription>
             </CardHeader>
             <CardContent>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <FormField
-                        control={form.control}
-                        name="shopId"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Shop</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingShops}>
-                                <FormControl>
-                                    <SelectTrigger>
-                                    <SelectValue placeholder={isLoadingShops ? "Loading shops..." : "Select a shop"} />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {shops?.map(shop => (
-                                        <SelectItem key={shop.id} value={shop.id}>
-                                            {shop.shopName} (ID: {shop.id})
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
                     <FormField
                         control={form.control}
                         name="name"

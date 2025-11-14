@@ -1,3 +1,4 @@
+
 'use client';
 import {
   Card,
@@ -25,13 +26,39 @@ import {
 import { Order } from '@/lib/data';
 import { MoreHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+
+
+interface UserData {
+  role: string;
+  shopId?: string;
+}
 
 export default function OrdersPage() {
   const firestore = useFirestore();
-  const ordersRef = useMemoFirebase(() => collection(firestore, 'shops/SHOP-X8Y1/orders'), [firestore]);
-  const { data: orders, isLoading } = useCollection<Order>(ordersRef);
+  const { user } = useUser();
+  const searchParams = useSearchParams();
+  
+  const adminSelectedShopId = searchParams.get('shopId');
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userData, isLoading: isUserDataLoading } = useDoc<UserData>(userDocRef);
+
+  const shopId = userData?.role === 'admin' ? adminSelectedShopId : userData?.shopId;
+
+  const ordersRef = useMemoFirebase(() => {
+    if (!shopId) return null;
+    return collection(firestore, `shops/${shopId}/orders`);
+  }, [firestore, shopId]);
+
+  const { data: orders, isLoading: areOrdersLoading } = useCollection<Order>(ordersRef);
 
   const getStatusVariant = (status: Order['status']) => {
     switch (status) {
@@ -50,12 +77,18 @@ export default function OrdersPage() {
     }
   }
 
+  const isLoading = isUserDataLoading || areOrdersLoading;
+  const isOwner = userData?.role === 'owner';
+  const isAdmin = userData?.role === 'admin';
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Orders</CardTitle>
         <CardDescription>
-          A list of all recent orders from your shop.
+          {isOwner && "A list of all recent orders from your shop."}
+          {isAdmin && (shopId ? `Viewing orders for shop: ${shopId}`: "Select a shop to view its orders.")}
+          {!isOwner && !isAdmin && "Viewing orders for your shop."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -75,7 +108,13 @@ export default function OrdersPage() {
           </TableHeader>
           <TableBody>
             {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Loading orders...</TableCell></TableRow>}
-            {!isLoading && orders?.map((order) => (
+            {!isLoading && !shopId && isAdmin && (
+                 <TableRow><TableCell colSpan={7} className="text-center">Please select a shop from the <Link href="/dashboard/shops" className="underline">shops page</Link> to view orders.</TableCell></TableRow>
+            )}
+             {!isLoading && shopId && orders?.length === 0 && (
+                <TableRow><TableCell colSpan={7} className="text-center">No orders found for this shop.</TableCell></TableRow>
+            )}
+            {!isLoading && shopId && orders?.map((order) => (
               <TableRow key={order.id}>
                 <TableCell className="font-medium">{order.id}</TableCell>
                 <TableCell>{order.customer}</TableCell>
