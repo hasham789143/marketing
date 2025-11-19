@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { addDoc, collection, doc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { addDoc, collection, doc, serverTimestamp, getDocs, getDoc } from 'firebase/firestore';
 import { Product, Review } from '@/lib/data';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
@@ -61,8 +61,8 @@ export default function ProductDetailPage() {
         const allShopsQuery = collection(firestore, 'shops');
         const querySnapshot = await getDocs(allShopsQuery);
         for(const shopDoc of querySnapshot.docs) {
-            const productDoc = await doc(firestore, `shops/${shopDoc.id}/products`, productId);
-            const productSnapshot = await require('firebase/firestore').getDoc(productDoc);
+            const productDoc = doc(firestore, `shops/${shopDoc.id}/products`, productId);
+            const productSnapshot = await getDoc(productDoc);
             if (productSnapshot.exists()) {
                 setShopId(shopDoc.id);
                 return;
