@@ -64,26 +64,9 @@ interface Category {
     specificationTypes?: SpecificationType[];
 }
 
-function CategoryForm({ category, onFormSubmit, isSubmitting }: { category?: Category, onFormSubmit: (values: CategoryFormValues) => void, isSubmitting: boolean }) {
-  const form = useForm<CategoryFormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: category ? {
-      name: category.name,
-      specificationTypes: category.specificationTypes || [],
-    } : {
-      name: '',
-      specificationTypes: [],
-    },
-  });
-
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: 'specificationTypes',
-  });
-
-  const SpecValues = ({ specIndex }: { specIndex: number }) => {
+function SpecValues({ specIndex, control }: { specIndex: number, control: any }) {
     const { fields: valFields, append: appendVal, remove: removeVal } = useFieldArray({
-      control: form.control,
+      control,
       name: `specificationTypes.${specIndex}.values`
     });
 
@@ -93,7 +76,7 @@ function CategoryForm({ category, onFormSubmit, isSubmitting }: { category?: Cat
         {valFields.map((field, index) => (
           <div key={field.id} className="flex items-center gap-2">
              <FormField
-              control={form.control}
+              control={control}
               name={`specificationTypes.${specIndex}.values.${index}`}
               render={({ field }) => (
                 <FormItem className="flex-grow">
@@ -115,7 +98,24 @@ function CategoryForm({ category, onFormSubmit, isSubmitting }: { category?: Cat
         </Button>
       </div>
     );
-  };
+}
+
+function CategoryForm({ category, onFormSubmit, isSubmitting }: { category?: Category, onFormSubmit: (values: CategoryFormValues) => void, isSubmitting: boolean }) {
+  const form = useForm<CategoryFormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: category ? {
+      name: category.name,
+      specificationTypes: category.specificationTypes || [],
+    } : {
+      name: '',
+      specificationTypes: [],
+    },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: 'specificationTypes',
+  });
   
   return (
     <Form {...form}>
@@ -158,7 +158,7 @@ function CategoryForm({ category, onFormSubmit, isSubmitting }: { category?: Cat
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-                <SpecValues specIndex={index} />
+                <SpecValues specIndex={index} control={form.control} />
               </div>
             ))}
              <Button type="button" variant="secondary" onClick={() => append({ name: '', values: [''] })}>
