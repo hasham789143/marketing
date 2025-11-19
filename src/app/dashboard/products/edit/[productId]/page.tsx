@@ -98,11 +98,17 @@ const getVariantCombinations = (specTypes: FormValues['specificationTypes']) => 
         return;
       }
       const spec = specs[index];
-      for (const value of spec.values) {
+      const validValues = spec.values.filter(v => v.trim() !== '');
+      if (validValues.length === 0 && spec.name.trim() !== '') {
+          recurse(specs, index + 1, current);
+          return;
+      }
+      for (const value of validValues) {
         recurse(specs, index + 1, [...current, { name: spec.name, value }]);
       }
     };
-    recurse(specTypes, 0, []);
+    const validSpecTypes = specTypes.filter(st => st.name && st.name.trim() !== '');
+    recurse(validSpecTypes, 0, []);
     return result;
 };
 
@@ -165,10 +171,13 @@ export default function EditProductPage() {
   const watchedSpecTypes = useWatch({ control: form.control, name: 'specificationTypes' });
 
   // Synchronize variants table with specification types
-  useMemo(() => {
-    if (!form.formState.isDirty) return; // Only run on user interaction
+  useEffect(() => {
+    // Only run if the user has interacted with the form to avoid overwriting initial data
+    if (!form.formState.isDirty) return;
+    
     const combinations = getVariantCombinations(watchedSpecTypes);
     const newVariants = combinations.map(combo => {
+      // Find an existing variant that matches the new combination.
       const existingVariant = variantFields.find(v => 
         JSON.stringify(v.specifications.map(s => s.value)) === JSON.stringify(combo.map(c => c.value))
       );
@@ -180,7 +189,8 @@ export default function EditProductPage() {
       };
     });
     replaceVariants(newVariants);
-  }, [watchedSpecTypes, replaceVariants, variantFields, form.formState.isDirty]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(watchedSpecTypes), replaceVariants, form.formState.isDirty]);
 
   async function onSubmit(values: FormValues) {
     if (!productDocRef) {
@@ -332,5 +342,3 @@ export default function EditProductPage() {
     </div>
   );
 }
-
-    

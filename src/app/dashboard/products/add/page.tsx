@@ -38,7 +38,7 @@ import { PlusCircle, Trash2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 
 const imageSchema = z.object({
@@ -96,11 +96,23 @@ const getVariantCombinations = (specTypes: FormValues['specificationTypes']) => 
         return;
       }
       const spec = specs[index];
-      for (const value of spec.values) {
+      // Filter out empty values before creating combinations
+      const validValues = spec.values.filter(v => v.trim() !== '');
+      if (validValues.length === 0 && spec.name.trim() !== '') {
+          // If a spec type is named but has no values, we can't create variants.
+          // To avoid an empty loop, we can either skip or handle as an incomplete state.
+          // For now, we continue to the next spec type to avoid breaking the chain.
+          recurse(specs, index + 1, current);
+          return;
+      }
+
+      for (const value of validValues) {
         recurse(specs, index + 1, [...current, { name: spec.name, value }]);
       }
     };
-    recurse(specTypes, 0, []);
+    // Filter out spec types that don't have a name
+    const validSpecTypes = specTypes.filter(st => st.name && st.name.trim() !== '');
+    recurse(validSpecTypes, 0, []);
     return result;
 };
 
@@ -157,9 +169,10 @@ export default function AddProductPage() {
   const watchedSpecTypes = useWatch({ control: form.control, name: 'specificationTypes' });
 
   // This effect synchronizes the variants table with the specification types
-  useMemo(() => {
+  useEffect(() => {
     const combinations = getVariantCombinations(watchedSpecTypes);
     const newVariants = combinations.map(combo => {
+      // Find an existing variant that matches the new combination.
       const existingVariant = variantFields.find(v => 
         JSON.stringify(v.specifications) === JSON.stringify(combo)
       );
@@ -171,7 +184,10 @@ export default function AddProductPage() {
       };
     });
     replaceVariants(newVariants);
-  }, [watchedSpecTypes, replaceVariants, variantFields]);
+  // Using JSON.stringify to deep-compare the watched value, which is an array of objects.
+  // This is a common pattern when a hook's dependency is a complex object.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(watchedSpecTypes), replaceVariants]);
   
 
   async function onSubmit(values: FormValues) {
@@ -407,5 +423,3 @@ export default function AddProductPage() {
     </div>
   );
 }
-
-    
