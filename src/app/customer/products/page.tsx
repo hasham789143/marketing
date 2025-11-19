@@ -1,3 +1,4 @@
+
 'use client';
 import Image from 'next/image';
 import {
@@ -11,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Product } from '@/lib/data';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { addDoc, collection, doc, query, where } from 'firebase/firestore';
+import { addDoc, collection, doc, query, where, getDocs, collectionGroup } from 'firebase/firestore';
 import { ShoppingCart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -45,8 +46,10 @@ export default function CustomerProductsPage() {
   const { user } = useUser();
   const { toast } = useToast();
   
-  const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
+  const [selectedShopId, setSelectedShopId] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const userDocRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -59,31 +62,79 @@ export default function CustomerProductsPage() {
     return userData?.shopConnections?.filter(c => c.status === 'active') || [];
   }, [userData]);
 
+  const allCategoriesRef = useMemoFirebase(() => {
+    return query(collectionGroup(firestore, 'categories'));
+  }, [firestore]);
+  
+  const { data: allCategories } = useCollection<Category>(allCategoriesRef);
+
+  const uniqueCategories = useMemo(() => {
+      if (!allCategories) return [];
+      const categoryNames = new Set<string>();
+      allCategories.forEach(cat => categoryNames.add(cat.name));
+      return Array.from(categoryNames).map(name => ({ id: name, name }));
+  }, [allCategories]);
+
+
   useEffect(() => {
-    // Set the default selected shop when active shops are loaded
-    if (activeShops.length > 0 && !selectedShopId) {
-      setSelectedShopId(activeShops[0].shopId);
-    }
-  }, [activeShops, selectedShopId]);
+    const fetchProducts = async () => {
+      if (!firestore || activeShops.length === 0) {
+        setProducts([]);
+        setIsLoading(false);
+        return;
+      }
+      setIsLoading(true);
 
+      let productPromises: Promise<any>[] = [];
 
-  const categoriesRef = useMemoFirebase(() => {
-    if (!selectedShopId) return null;
-    return collection(firestore, `shops/${selectedShopId}/categories`);
-  }, [firestore, selectedShopId]);
+      if (selectedShopId === 'all') {
+        // Fetch from all active shops
+        activeShops.forEach(shop => {
+          let productsQuery;
+          const productsCollection = collection(firestore, `shops/${shop.shopId}/products`);
+          if (selectedCategory === 'all') {
+            productsQuery = query(productsCollection);
+          } else {
+            productsQuery = query(productsCollection, where('category', '==', selectedCategory));
+          }
+          productPromises.push(getDocs(productsQuery));
+        });
+      } else {
+        // Fetch from a single selected shop
+        let productsQuery;
+        const productsCollection = collection(firestore, `shops/${selectedShopId}/products`);
+        if (selectedCategory === 'all') {
+          productsQuery = query(productsCollection);
+        } else {
+          productsQuery = query(productsCollection, where('category', '==', selectedCategory));
+        }
+        productPromises.push(getDocs(productsQuery));
+      }
 
-  const { data: categories } = useCollection<Category>(categoriesRef);
+      try {
+        const snapshots = await Promise.all(productPromises);
+        const allProducts: Product[] = [];
+        snapshots.forEach(snapshot => {
+          snapshot.docs.forEach((doc: any) => {
+            allProducts.push({ id: doc.id, ...doc.data() } as Product);
+          });
+        });
+        setProducts(allProducts);
+      } catch (error) {
+        console.error("Error fetching products: ", error);
+        toast({
+          variant: "destructive",
+          title: "Failed to Fetch Products",
+          description: "There was an error loading products. Please try again."
+        })
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const productsRef = useMemoFirebase(() => {
-    if (!selectedShopId) return null;
-    const baseCollection = collection(firestore, `shops/${selectedShopId}/products`);
-    if (selectedCategory === 'all') {
-      return baseCollection;
-    }
-    return query(baseCollection, where('category', '==', selectedCategory));
-  }, [firestore, selectedShopId, selectedCategory]);
+    fetchProducts();
+  }, [firestore, activeShops, selectedShopId, selectedCategory, toast]);
 
-  const { data: products, isLoading } = useCollection<Product>(productsRef);
 
   const handleAddToCart = async (product: Product) => {
     if (!user) {
@@ -139,10 +190,9 @@ export default function CustomerProductsPage() {
             <div>
                 <Label htmlFor="shop-filter" className="text-sm font-medium">Select a Shop</Label>
                 <Select
-                    value={selectedShopId || ''}
+                    value={selectedShopId}
                     onValueChange={(value) => {
                         setSelectedShopId(value);
-                        setSelectedCategory('all'); // Reset category filter on shop change
                     }}
                     disabled={activeShops.length === 0}
                 >
@@ -150,6 +200,7 @@ export default function CustomerProductsPage() {
                         <SelectValue placeholder="Select a shop" />
                     </SelectTrigger>
                     <SelectContent>
+                        <SelectItem value="all">All Shops</SelectItem>
                         {activeShops.map(shop => (
                             <SelectItem key={shop.shopId} value={shop.shopId}>
                                 {shop.shopName}
@@ -163,14 +214,14 @@ export default function CustomerProductsPage() {
                 <Select
                     value={selectedCategory}
                     onValueChange={setSelectedCategory}
-                    disabled={!selectedShopId}
+                    disabled={activeShops.length === 0}
                 >
                     <SelectTrigger id="category-filter" className="w-full md:w-[280px] mt-1">
                         <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All Products</SelectItem>
-                        {categories?.map(category => (
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {uniqueCategories?.map(category => (
                             <SelectItem key={category.id} value={category.name}>
                                 {category.name}
                             </SelectItem>
@@ -181,16 +232,16 @@ export default function CustomerProductsPage() {
         </div>
       </CardHeader>
       <CardContent>
-        {isLoading && <p>Loading products...</p>}
+        {isLoading && <p className="text-center py-8">Loading products...</p>}
         {!isLoading && activeShops.length === 0 && (
             <div className="text-center text-muted-foreground py-8">
                 <p>You haven't connected to any shops yet.</p>
                 <Button variant="link" asChild><Link href="/customer/profile">Go to Profile to add a shop</Link></Button>
             </div>
         )}
-        {!isLoading && selectedShopId && !products?.length && (
+        {!isLoading && !products?.length && (
           <p className="text-center text-muted-foreground py-8">
-            No products found for this shop or category.
+            No products found for this selection.
           </p>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -201,7 +252,7 @@ export default function CustomerProductsPage() {
             const stock = displayVariant?.stockQty ?? 0;
 
             return (
-              <Card key={product.id} className="flex flex-col">
+              <Card key={`${product.shopId}-${product.id}`} className="flex flex-col">
                 <div className="relative w-full h-48">
                     {imageUrl ? (
                     <Image
