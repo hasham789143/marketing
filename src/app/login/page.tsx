@@ -89,10 +89,14 @@ export default function LoginPage() {
         }
       }
     } catch (error: any) {
+      let description = error.message;
+      if (error.code === 'auth/invalid-credential') {
+        description = 'Invalid email or password.';
+      }
       toast({
         variant: 'destructive',
         title: 'Login Failed',
-        description: error.message,
+        description: description,
       });
     }
   }
