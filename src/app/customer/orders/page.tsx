@@ -1,4 +1,3 @@
-
 'use client';
 import {
   Card,
@@ -83,67 +82,63 @@ export default function CustomerOrdersPage() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>My Bills</CardTitle>
-        <CardDescription>A list of all your past bills. Click one to see details.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="relative w-full overflow-auto">
-          <Table>
-            <TableHeader>
+    <div className="p-4 md:p-6 lg:p-8">
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold">My Bills</h1>
+        <p className="text-muted-foreground">A list of all your past bills. Click one to see details.</p>
+      </div>
+      <div className="relative w-full overflow-auto rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Bill ID</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Total</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading && (
               <TableRow>
-                <TableHead>Bill ID</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Total</TableHead>
+                <TableCell colSpan={4} className="text-center">
+                  Loading your bills...
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center">
-                    Loading your bills...
-                  </TableCell>
-                </TableRow>
-              )}
-              {!isLoading && !activeShop && (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center">
-                    You do not have an active shop connection. Please check your profile.
-                  </TableCell>
-                </TableRow>
-              )}
-              {!isLoading && activeShop && !orders?.length && (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center">
-                    You haven't placed any orders yet.
-                  </TableCell>
-                </TableRow>
-              )}
-              {!isLoading && activeShop &&
-                orders?.map((order) => (
-                  <TableRow key={order.id} onClick={() => handleOrderClick(order.id)} className="cursor-pointer">
-                    <TableCell className="font-medium truncate max-w-24 md:max-w-none">{order.id}</TableCell>
-                    <TableCell>{order.date ? format(new Date(order.date), 'PP') : 'N/A'}</TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusVariant(order.status)}>{order.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">PKR {order.total.toLocaleString()}</TableCell>
-                  </TableRow>
-                ))}
-            </TableBody>
-            <TableFooter>
+            )}
+            {!isLoading && !activeShop && (
               <TableRow>
-                <TableCell colSpan={3} className="text-right font-bold">Grand Total</TableCell>
-                <TableCell className="text-right font-bold">PKR {grandTotal.toLocaleString()}</TableCell>
+                <TableCell colSpan={4} className="text-center">
+                  You do not have an active shop connection. Please check your profile.
+                </TableCell>
               </TableRow>
-            </TableFooter>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
+            )}
+            {!isLoading && activeShop && !orders?.length && (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center">
+                  You haven't placed any orders yet.
+                </TableCell>
+              </TableRow>
+            )}
+            {!isLoading && activeShop &&
+              orders?.map((order) => (
+                <TableRow key={order.id} onClick={() => handleOrderClick(order.id)} className="cursor-pointer">
+                  <TableCell className="font-medium truncate max-w-24 md:max-w-none">{order.id}</TableCell>
+                  <TableCell>{order.date ? format(new Date(order.date), 'PP') : 'N/A'}</TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusVariant(order.status)}>{order.status}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right">PKR {order.total.toLocaleString()}</TableCell>
+                </TableRow>
+              ))}
+          </TableBody>
+          <TableFooter>
+            <TableRow>
+              <TableCell colSpan={3} className="text-right font-bold">Grand Total</TableCell>
+              <TableCell className="text-right font-bold">PKR {grandTotal.toLocaleString()}</TableCell>
+            </TableRow>
+          </TableFooter>
+        </Table>
+      </div>
+    </div>
   );
 }
-
-    

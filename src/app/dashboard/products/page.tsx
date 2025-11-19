@@ -1,4 +1,3 @@
-
 'use client';
 import Image from 'next/image';
 import {
@@ -64,15 +63,15 @@ export default function ProductsPage() {
   const isAdmin = userData?.role === 'admin';
 
   return (
-    <Card>
-      <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <div className="p-4 md:p-6 lg:p-8">
+      <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
         <div>
-          <CardTitle>Products</CardTitle>
-          <CardDescription>
+          <h1 className="text-2xl font-bold">Products</h1>
+          <p className="text-muted-foreground">
             {isOwner && "Manage your products and view their inventory."}
             {isAdmin && (shopId ? `Viewing products for shop: ${shopId}`: "Select a shop to view its products.")}
             {!isOwner && !isAdmin && "View products for your shop."}
-          </CardDescription>
+          </p>
         </div>
         {isOwner && (
             <Button asChild>
@@ -82,101 +81,97 @@ export default function ProductsPage() {
                 </Link>
             </Button>
         )}
-      </CardHeader>
-      <CardContent>
-        <div className="relative w-full overflow-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[80px] sm:table-cell">
-                  Image
+      </header>
+      <div className="relative w-full overflow-auto rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[80px] sm:table-cell">
+                Image
+              </TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead className="hidden md:table-cell">Variants</TableHead>
+              <TableHead className="hidden sm:table-cell">Category</TableHead>
+              <TableHead className="text-right">Price</TableHead>
+              <TableHead className="text-right hidden md:table-cell">Total Stock</TableHead>
+              {isOwner && (
+                <TableHead>
+                  <span className="sr-only">Actions</span>
                 </TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead className="hidden md:table-cell">Variants</TableHead>
-                <TableHead className="hidden sm:table-cell">Category</TableHead>
-                <TableHead className="text-right">Price</TableHead>
-                <TableHead className="text-right hidden md:table-cell">Total Stock</TableHead>
-                {isOwner && (
-                  <TableHead>
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                )}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={isOwner ? 7 : 6} className="text-center">Loading products...</TableCell></TableRow>}
-              {!isLoading && !shopId && isAdmin && (
-                  <TableRow><TableCell colSpan={isOwner ? 7 : 6} className="text-center">Please select a shop from the <Link href="/dashboard/shops" className="underline">shops page</Link> to view products.</TableCell></TableRow>
               )}
-              {!isLoading && shopId && products?.length === 0 && (
-                  <TableRow><TableCell colSpan={isOwner ? 7 : 6} className="text-center">No products found for this shop.</TableCell></TableRow>
-              )}
-              {!isLoading && shopId && products?.map((product) => {
-                const imageUrl = product.images?.[0];
-                const totalStock = product.variants?.reduce((sum, v) => sum + v.stockQty, 0) ?? 0;
-                const lowestPrice = product.variants?.reduce((min, v) => v.price < min ? v.price : min, product.variants[0]?.price ?? 0) ?? 0;
-                
-                return (
-                  <TableRow key={product.id}>
-                    <TableCell className="sm:table-cell">
-                      {imageUrl ? (
-                        <Image
-                          alt={product.name}
-                          className="aspect-square rounded-md object-cover"
-                          height="64"
-                          src={imageUrl}
-                          width="64"
-                          data-ai-hint={product.name}
-                        />
-                      ) : (
-                        <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center">
-                            <span className="text-xs text-muted-foreground">No Image</span>
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-medium">{product.name}</TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      {product.variants?.map(v => (
-                          <Badge key={v.sku} variant="outline" className="mr-1 mb-1">{v.sku}</Badge>
-                      ))}
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell">{product.category}</TableCell>
-                    <TableCell className="text-right">
-                      PKR {lowestPrice.toLocaleString()}
-                      {product.variants && product.variants.length > 1 ? '+' : ''}
-                    </TableCell>
-                    <TableCell className="text-right hidden md:table-cell">{totalStock}</TableCell>
-                    {isOwner && (
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              aria-haspopup="true"
-                              size="icon"
-                              variant="ghost"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Toggle menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>Edit</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading && <TableRow><TableCell colSpan={isOwner ? 7 : 6} className="text-center">Loading products...</TableCell></TableRow>}
+            {!isLoading && !shopId && isAdmin && (
+                <TableRow><TableCell colSpan={isOwner ? 7 : 6} className="text-center">Please select a shop from the <Link href="/dashboard/shops" className="underline">shops page</Link> to view products.</TableCell></TableRow>
+            )}
+            {!isLoading && shopId && products?.length === 0 && (
+                <TableRow><TableCell colSpan={isOwner ? 7 : 6} className="text-center">No products found for this shop.</TableCell></TableRow>
+            )}
+            {!isLoading && shopId && products?.map((product) => {
+              const imageUrl = product.images?.[0];
+              const totalStock = product.variants?.reduce((sum, v) => sum + v.stockQty, 0) ?? 0;
+              const lowestPrice = product.variants?.reduce((min, v) => v.price < min ? v.price : min, product.variants[0]?.price ?? 0) ?? 0;
+              
+              return (
+                <TableRow key={product.id}>
+                  <TableCell className="sm:table-cell">
+                    {imageUrl ? (
+                      <Image
+                        alt={product.name}
+                        className="aspect-square rounded-md object-cover"
+                        height="64"
+                        src={imageUrl}
+                        width="64"
+                        data-ai-hint={product.name}
+                      />
+                    ) : (
+                      <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center">
+                          <span className="text-xs text-muted-foreground">No Image</span>
+                      </div>
                     )}
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
+                  </TableCell>
+                  <TableCell className="font-medium">{product.name}</TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {product.variants?.map(v => (
+                        <Badge key={v.sku} variant="outline" className="mr-1 mb-1">{v.sku}</Badge>
+                    ))}
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">{product.category}</TableCell>
+                  <TableCell className="text-right">
+                    PKR {lowestPrice.toLocaleString()}
+                    {product.variants && product.variants.length > 1 ? '+' : ''}
+                  </TableCell>
+                  <TableCell className="text-right hidden md:table-cell">{totalStock}</TableCell>
+                  {isOwner && (
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            aria-haspopup="true"
+                            size="icon"
+                            variant="ghost"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Toggle menu</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>Edit</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive">
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  )}
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
   );
 }
-
-    

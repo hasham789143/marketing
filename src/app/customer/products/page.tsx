@@ -1,4 +1,3 @@
-
 'use client';
 import Image from 'next/image';
 import {
@@ -180,12 +179,12 @@ export default function CustomerProductsPage() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Browse Products</CardTitle>
-        <CardDescription>
+    <div className="p-4 md:p-6 lg:p-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">Browse Products</h1>
+        <p className="text-muted-foreground">
           {activeShops.length > 0 ? "Select a shop to browse its products." : "You are not connected to any shops. Add a shop from your profile to start browsing."}
-        </CardDescription>
+        </p>
         <div className="pt-4 grid md:grid-cols-2 gap-4">
             <div>
                 <Label htmlFor="shop-filter" className="text-sm font-medium">Select a Shop</Label>
@@ -230,8 +229,9 @@ export default function CustomerProductsPage() {
                 </Select>
             </div>
         </div>
-      </CardHeader>
-      <CardContent>
+      </div>
+      
+      <div>
         {isLoading && <p className="text-center py-8">Loading products...</p>}
         {!isLoading && activeShops.length === 0 && (
             <div className="text-center text-muted-foreground py-8">
@@ -296,7 +296,7 @@ export default function CustomerProductsPage() {
             );
           })}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

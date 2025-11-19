@@ -1,4 +1,3 @@
-
 'use client';
 import {
   Card,
@@ -178,13 +177,13 @@ export default function OrdersPage() {
 
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{pageTitle}</CardTitle>
-        <CardDescription>
+    <div className="p-4 md:p-6 lg:p-8">
+      <header className="mb-6">
+        <h1 className="text-2xl font-bold">{pageTitle}</h1>
+        <p className="text-muted-foreground">
           {pageDescription}
           {customerId && <Link href="/dashboard/orders" className="underline ml-2">View all orders</Link>}
-        </CardDescription>
+        </p>
         {!customerId && !isLoading && orders && orders.length > 0 && (
             <div className="flex flex-col sm:flex-row gap-4 pt-2 text-sm">
                 <div className="flex items-center gap-2">
@@ -197,99 +196,95 @@ export default function OrdersPage() {
                 </div>
             </div>
         )}
-      </CardHeader>
-      <CardContent>
-        <div className="relative w-full overflow-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Order ID</TableHead>
-                <TableHead className="hidden sm:table-cell">Customer</TableHead>
-                <TableHead className="hidden md:table-cell">Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Payment</TableHead>
-                <TableHead className="text-right">Total</TableHead>
+      </header>
+      <div className="relative w-full overflow-auto rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Order ID</TableHead>
+              <TableHead className="hidden sm:table-cell">Customer</TableHead>
+              <TableHead className="hidden md:table-cell">Date</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Payment</TableHead>
+              <TableHead className="text-right">Total</TableHead>
+              {canManageOrders && (
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              )}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading && <TableRow><TableCell colSpan={canManageOrders ? 7 : 6} className="text-center">Loading orders...</TableCell></TableRow>}
+            {!isLoading && !shopId && isAdmin && (
+                <TableRow><TableCell colSpan={canManageOrders ? 7 : 6} className="text-center">Please select a shop from the <Link href="/dashboard/shops" className="underline">shops page</Link> to view orders.</TableCell></TableRow>
+            )}
+            {!isLoading && shopId && orders?.length === 0 && (
+                <TableRow><TableCell colSpan={canManageOrders ? 7 : 6} className="text-center">No orders found.</TableCell></TableRow>
+            )}
+            {!isLoading && shopId && orders?.map((order) => (
+              <TableRow key={order.id}>
+                <TableCell className="font-medium truncate max-w-24 md:max-w-none">{order.id}</TableCell>
+                <TableCell className="hidden sm:table-cell">{order.customer}</TableCell>
+                <TableCell className="hidden md:table-cell">{format(new Date(order.date), 'PP')}</TableCell>
+                <TableCell>
+                  <Badge variant={getStatusVariant(order.status)}>{order.status}</Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={order.paymentStatus === 'Paid' ? 'default' : 'secondary'}>{order.paymentStatus}</Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  PKR {order.total.toLocaleString()}
+                </TableCell>
                 {canManageOrders && (
-                  <TableHead>
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
+                    <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              aria-haspopup="true"
+                              size="icon"
+                              variant="ghost"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Toggle menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/dashboard/orders/${order.id}${isAdmin ? `?shopId=${shopId}` : ''}`}>View Details</Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel>Update Order Status</DropdownMenuLabel>
+                            {orderStatuses.map((status) => (
+                                <DropdownMenuItem 
+                                    key={status}
+                                    onClick={() => handleStatusUpdate(order.id, status)}
+                                    disabled={order.status === status}
+                                >
+                                    {order.status === status ? `✓ ${status}` : `Mark as ${status}`}
+                                </DropdownMenuItem>
+                            ))}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel>Update Payment Status</DropdownMenuLabel>
+                            {paymentStatuses.map((status) => (
+                                <DropdownMenuItem 
+                                    key={status}
+                                    onClick={() => handlePaymentStatusUpdate(order.id, status)}
+                                    disabled={order.paymentStatus === status}
+                                >
+                                    {order.paymentStatus === status ? `✓ ${status}` : `Mark as ${status}`}
+                                </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                    </TableCell>
                 )}
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={canManageOrders ? 7 : 6} className="text-center">Loading orders...</TableCell></TableRow>}
-              {!isLoading && !shopId && isAdmin && (
-                  <TableRow><TableCell colSpan={canManageOrders ? 7 : 6} className="text-center">Please select a shop from the <Link href="/dashboard/shops" className="underline">shops page</Link> to view orders.</TableCell></TableRow>
-              )}
-              {!isLoading && shopId && orders?.length === 0 && (
-                  <TableRow><TableCell colSpan={canManageOrders ? 7 : 6} className="text-center">No orders found.</TableCell></TableRow>
-              )}
-              {!isLoading && shopId && orders?.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-medium truncate max-w-24 md:max-w-none">{order.id}</TableCell>
-                  <TableCell className="hidden sm:table-cell">{order.customer}</TableCell>
-                  <TableCell className="hidden md:table-cell">{format(new Date(order.date), 'PP')}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusVariant(order.status)}>{order.status}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={order.paymentStatus === 'Paid' ? 'default' : 'secondary'}>{order.paymentStatus}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    PKR {order.total.toLocaleString()}
-                  </TableCell>
-                  {canManageOrders && (
-                      <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                aria-haspopup="true"
-                                size="icon"
-                                variant="ghost"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                                <span className="sr-only">Toggle menu</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem asChild>
-                                <Link href={`/dashboard/orders/${order.id}${isAdmin ? `?shopId=${shopId}` : ''}`}>View Details</Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuLabel>Update Order Status</DropdownMenuLabel>
-                              {orderStatuses.map((status) => (
-                                  <DropdownMenuItem 
-                                      key={status}
-                                      onClick={() => handleStatusUpdate(order.id, status)}
-                                      disabled={order.status === status}
-                                  >
-                                      {order.status === status ? `✓ ${status}` : `Mark as ${status}`}
-                                  </DropdownMenuItem>
-                              ))}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuLabel>Update Payment Status</DropdownMenuLabel>
-                              {paymentStatuses.map((status) => (
-                                  <DropdownMenuItem 
-                                      key={status}
-                                      onClick={() => handlePaymentStatusUpdate(order.id, status)}
-                                      disabled={order.paymentStatus === status}
-                                  >
-                                      {order.paymentStatus === status ? `✓ ${status}` : `Mark as ${status}`}
-                                  </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                      </TableCell>
-                  )}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
   );
 }
-
-    
