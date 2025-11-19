@@ -168,9 +168,9 @@ export default function OrdersPage() {
 
   const pageTitle = customerId ? `Bill for ${customerName || 'Customer'}` : "Orders";
   const pageDescription = customerId 
-    ? `A list of all orders for this customer.`
+    ? `A list of all orders for this customer. Use the actions menu to update status.`
     : isOwnerOrStaff 
-    ? "A list of all recent orders from your shop."
+    ? "Manage all orders from your shop. Use the actions menu on each order to update its status."
     : isAdmin 
     ? (shopId ? `Viewing orders for shop: ${shopId}`: "Select a shop to view its orders.")
     : "Viewing orders for your shop.";

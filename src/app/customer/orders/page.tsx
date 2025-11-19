@@ -75,13 +75,13 @@ export default function CustomerOrdersPage() {
     <Card>
       <CardHeader>
         <CardTitle>My Bills</CardTitle>
-        <CardDescription>A list of all your past orders. Click an order to see details.</CardDescription>
+        <CardDescription>A list of all your past bills. Click one to see details.</CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Order ID</TableHead>
+              <TableHead>Bill ID</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Total</TableHead>
