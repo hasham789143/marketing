@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Eye, MoreHorizontal, PlusCircle, Users } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -35,7 +35,7 @@ interface Shop {
     shopName: string;
     ownerUserId: string;
     status: string;
-    createdAt: string;
+    createdAt: Timestamp;
 }
 
 export default function ShopsPage() {
@@ -110,7 +110,7 @@ export default function ShopsPage() {
                 <TableCell>
                   <Badge variant={getStatusVariant(shop.status)}>{shop.status}</Badge>
                 </TableCell>
-                <TableCell>{format(new Date(shop.createdAt), 'PP')}</TableCell>
+                <TableCell>{shop.createdAt ? format(shop.createdAt.toDate(), 'PP') : 'N/A'}</TableCell>
                 <TableCell>
                     <div className="flex items-center justify-end gap-2">
                          <Button variant="outline" size="sm" onClick={() => handleViewProducts(shop.id)}>

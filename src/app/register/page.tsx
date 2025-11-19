@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -22,7 +23,7 @@ import {
 } from '@/components/ui/card';
 import { useAuth, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -116,7 +117,7 @@ export default function RegisterPage() {
         phone: '', // Initially empty
         role: role, 
         shopId: values.shopId || null,
-        createdAt: new Date().toISOString(),
+        createdAt: serverTimestamp(),
       });
       
       toast({

@@ -30,7 +30,7 @@ import {
   TableHead,
 } from '@/components/ui/table';
 import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import { addDoc, collection, doc, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, doc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { PlusCircle } from 'lucide-react';
@@ -48,7 +48,7 @@ interface UserData {
 interface Category {
     id: string;
     name: string;
-    createdAt: string;
+    createdAt: Timestamp;
 }
 
 export default function CategoriesPage() {
@@ -122,7 +122,7 @@ export default function CategoriesPage() {
                             {!isLoading && categories?.map((cat) => (
                                 <TableRow key={cat.id}>
                                     <TableCell className="font-medium">{cat.name}</TableCell>
-                                    <TableCell>{cat.createdAt ? format(new Date(cat.createdAt), 'PPP') : 'N/A'}</TableCell>
+                                    <TableCell>{cat.createdAt ? format(cat.createdAt.toDate(), 'PPP') : 'N/A'}</TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>

@@ -23,7 +23,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useAuth, useFirestore } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
@@ -87,7 +87,7 @@ export default function RegisterShopPage() {
           currency: values.currency,
           taxRate: values.taxRate,
           status: 'active',
-          createdAt: new Date().toISOString()
+          createdAt: serverTimestamp()
       });
 
       // Create owner user document
@@ -99,7 +99,7 @@ export default function RegisterShopPage() {
         role: 'owner',
         shopId: shopId,
         imageUrl: values.ownerImageUrl,
-        createdAt: new Date().toISOString()
+        createdAt: serverTimestamp()
       });
 
       toast({
