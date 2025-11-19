@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import { useFieldArray, useForm, useWatch } from 'react-hook-form';
+import { useFieldArray, useForm, useWatch, Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -112,6 +112,41 @@ const getVariantCombinations = (specTypes: FormValues['specificationTypes']) => 
     return result;
 };
 
+// Component to manage the nested array of specification values
+function SpecificationValues({ specTypeIndex, control }: { specTypeIndex: number, control: Control<FormValues> }) {
+    const { fields: valueFields, append: appendValue, remove: removeValue } = useFieldArray({
+        control,
+        name: `specificationTypes.${specTypeIndex}.values`
+    });
+
+    return (
+        <div className="space-y-2">
+            {valueFields.map((valueField, valueIndex) => (
+                <div key={valueField.id} className="flex items-center gap-2">
+                    <FormField 
+                        name={`specificationTypes.${specTypeIndex}.values.${valueIndex}`} 
+                        control={control} 
+                        render={({ field }) => (
+                            <FormItem className="flex-grow">
+                                <FormControl>
+                                    <Input placeholder="e.g. Red, Large, 8GB" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} 
+                    />
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeValue(valueIndex)}>
+                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={() => appendValue('')}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add Value
+            </Button>
+        </div>
+    );
+}
 
 export default function EditProductPage() {
   const firestore = useFirestore();
@@ -172,14 +207,12 @@ export default function EditProductPage() {
 
   // Synchronize variants table with specification types
   useEffect(() => {
-    // Only run if the user has interacted with the form to avoid overwriting initial data
     if (!form.formState.isDirty) return;
-    
+
     const combinations = getVariantCombinations(watchedSpecTypes);
     const newVariants = combinations.map(combo => {
-      // Find an existing variant that matches the new combination.
       const existingVariant = variantFields.find(v => 
-        JSON.stringify(v.specifications.map(s => s.value)) === JSON.stringify(combo.map(c => c.value))
+        JSON.stringify(v.specifications) === JSON.stringify(combo)
       );
       return {
         specifications: combo,
@@ -188,9 +221,12 @@ export default function EditProductPage() {
         stockQty: existingVariant?.stockQty ?? 0
       };
     });
-    replaceVariants(newVariants);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(watchedSpecTypes), replaceVariants, form.formState.isDirty]);
+
+    if (JSON.stringify(newVariants) !== JSON.stringify(variantFields)) {
+        replaceVariants(newVariants);
+    }
+  }, [watchedSpecTypes, replaceVariants, variantFields, form.formState.isDirty]);
+
 
   async function onSubmit(values: FormValues) {
     if (!productDocRef) {
@@ -289,21 +325,7 @@ export default function EditProductPage() {
                                 </div>
                                 <div className="pl-4 space-y-2">
                                      <FormLabel>Values</FormLabel>
-                                     <useFieldArray control={form.control} name={`specificationTypes.${specTypeIndex}.values`}>
-                                        {({ fields: valueFields, append: appendValue, remove: removeValue }) => (
-                                        <div className="space-y-2">
-                                            {valueFields.map((valueField, valueIndex) => (
-                                                <div key={valueField.id} className="flex items-center gap-2">
-                                                     <FormField name={`specificationTypes.${specTypeIndex}.values.${valueIndex}`} control={form.control} render={({ field }) => (
-                                                        <FormItem className="flex-grow"><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                                                    )} />
-                                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeValue(valueIndex)}><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
-                                                </div>
-                                            ))}
-                                            <Button type="button" variant="outline" size="sm" onClick={() => appendValue('')}><PlusCircle className="mr-2 h-4 w-4" />Add Value</Button>
-                                        </div>
-                                        )}
-                                    </useFieldArray>
+                                     <SpecificationValues specTypeIndex={specTypeIndex} control={form.control} />
                                 </div>
                             </div>
                         ))}
