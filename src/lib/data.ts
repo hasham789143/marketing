@@ -11,6 +11,7 @@ export type Product = {
   shopId: string;
   name: string;
   category: string;
+  subcategory?: string;
   description?: string;
   images?: string[];
   variants?: ProductVariant[];

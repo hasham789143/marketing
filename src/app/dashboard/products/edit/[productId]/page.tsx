@@ -50,6 +50,7 @@ const imageSchema = z.object({
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Product name must be at least 2 characters.' }),
   category: z.string().min(1, { message: 'Category is required.' }),
+  subcategory: z.string().optional(),
   description: z.string().optional(),
   images: z.array(imageSchema).min(1, 'At least one image URL is required.'),
   variants: z.array(variantSchema).min(1, 'You must add at least one product variant.'),
@@ -102,6 +103,7 @@ export default function EditProductPage() {
     defaultValues: {
       name: '',
       category: '',
+      subcategory: '',
       description: '',
       images: [{ url: '' }],
       variants: [{ sku: '', price: 0, stockQty: 0 }],
@@ -113,6 +115,7 @@ export default function EditProductPage() {
       form.reset({
         name: productData.name,
         category: productData.category,
+        subcategory: productData.subcategory || '',
         description: productData.description,
         images: productData.images?.map(url => ({ url })) || [{ url: '' }],
         variants: productData.variants,
@@ -143,6 +146,7 @@ export default function EditProductPage() {
       await updateDoc(productDocRef, {
         name: values.name,
         category: values.category,
+        subcategory: values.subcategory,
         description: values.description,
         variants: values.variants,
         price: values.variants[0]?.price || 0, // Recalculate main price
@@ -258,6 +262,22 @@ export default function EditProductPage() {
                             )}
                         />
                     </div>
+                     <FormField
+                        control={form.control}
+                        name="subcategory"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Sub-category (Optional)</FormLabel>
+                            <FormControl>
+                            <Input placeholder="e.g., iPhone, Samsung" {...field} />
+                            </FormControl>
+                             <FormDescription>
+                                A brand or type within the main category.
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
                      <FormField
                         control={form.control}
                         name="description"

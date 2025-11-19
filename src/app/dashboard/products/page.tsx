@@ -138,7 +138,10 @@ export default function ProductsPage() {
                         <Badge key={v.sku} variant="outline" className="mr-1 mb-1">{v.sku}</Badge>
                     ))}
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell">{product.category}</TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    <div>{product.category}</div>
+                    {product.subcategory && <div className="text-xs text-muted-foreground">{product.subcategory}</div>}
+                    </TableCell>
                   <TableCell className="text-right">
                     PKR {lowestPrice.toLocaleString()}
                     {product.variants && product.variants.length > 1 ? '+' : ''}
