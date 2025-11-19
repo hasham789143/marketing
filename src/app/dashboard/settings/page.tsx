@@ -91,14 +91,14 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-        <div className="max-w-2xl mx-auto">
+        <div className="w-full">
             <p>Loading settings...</p>
         </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="w-full">
         <h1 className="text-3xl font-bold tracking-tight mb-2 font-headline">Settings</h1>
         <p className="text-muted-foreground mb-8">
             Manage your shop settings and preferences.

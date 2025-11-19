@@ -119,7 +119,7 @@ export default function RegisterShopPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="w-full">
         <Card>
             <CardHeader>
             <CardTitle>Register a New Shop</CardTitle>
@@ -281,5 +281,3 @@ export default function RegisterShopPage() {
     </div>
   );
 }
-
-    

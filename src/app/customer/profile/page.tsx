@@ -163,7 +163,7 @@ export default function CustomerProfilePage() {
   }
 
   return (
-    <div className="grid max-w-4xl mx-auto gap-8">
+    <div className="grid w-full gap-8">
         <h1 className="text-3xl font-bold tracking-tight font-headline">My Profile</h1>
         
         <Card>

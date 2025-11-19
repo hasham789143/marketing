@@ -92,7 +92,7 @@ export default function OrderDetailsPage() {
 
   if (!order) {
      return (
-      <Card className="max-w-4xl mx-auto">
+      <Card>
         <CardHeader>
             <CardTitle>Order Not Found</CardTitle>
             <CardDescription>The requested order could not be found or you do not have permission to view it.</CardDescription>
@@ -120,7 +120,7 @@ export default function OrderDetailsPage() {
   const productTotal = order.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
   return (
-    <Card className="max-w-4xl mx-auto">
+    <Card>
       <CardHeader className="flex flex-row items-start justify-between">
         <div>
           <CardTitle>Order Details</CardTitle>
@@ -167,7 +167,7 @@ export default function OrderDetailsPage() {
           </TableBody>
         </Table>
         <Separator className="my-4" />
-        <div className="grid gap-2 text-right w-full max-w-sm ml-auto">
+        <div className="grid gap-2 text-right w-full sm:w-1/2 md:w-1/3 ml-auto">
             <div className="flex justify-between">
                 <span className="text-muted-foreground">Product Total</span>
                 <span>PKR {productTotal.toLocaleString()}</span>

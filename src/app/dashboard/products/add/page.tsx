@@ -146,12 +146,12 @@ export default function AddProductPage() {
   const isOwner = userData?.role === 'owner';
 
   if (isLoading) {
-    return <div className="max-w-4xl mx-auto">Loading...</div>;
+    return <div className="w-full">Loading...</div>;
   }
 
   if (!isOwner) {
     return (
-        <div className="max-w-4xl mx-auto">
+        <div className="w-full">
             <Card>
                 <CardHeader>
                     <CardTitle>Access Denied</CardTitle>
@@ -166,7 +166,7 @@ export default function AddProductPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="w-full">
         <Card>
             <CardHeader>
             <CardTitle>Add a New Product</CardTitle>
