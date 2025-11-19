@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -58,14 +57,12 @@ export default function RequestsPage() {
   const shopId = userData?.shopId;
   const isOwner = userData?.role === 'owner';
 
-  // Find all users who have a connection entry for THIS shopId.
-  // We can't query for the status directly in a complex object within an array,
-  // so we fetch all connections for the shop and filter locally.
+  // Find all users who have a connection entry for THIS shopId using the new queryable field.
   const requestsRef = useMemoFirebase(() => {
     if (!shopId) return null;
     return query(
         collection(firestore, 'users'), 
-        where('shopConnections.shopId', 'array-contains', shopId)
+        where('shopConnectionIds', 'array-contains', shopId)
     );
   }, [firestore, shopId]);
 
@@ -76,7 +73,7 @@ export default function RequestsPage() {
     if (!usersWithRequests || !shopId) return [];
     return usersWithRequests
       .map(u => {
-        // Find the specific connection object for the current shop
+        // Find the specific connection object for the current shop that is pending
         const request = u.shopConnections.find(sc => sc.shopId === shopId && sc.status === 'pending');
         // Only include this user if they have a pending request for THIS shop
         return request ? { ...u, request } : null;
@@ -92,10 +89,8 @@ export default function RequestsPage() {
     const batch = writeBatch(firestore);
 
     const oldConnection = customer.request;
-    const newStatus = approve ? 'active' : 'rejected';
     
-    // For rejection, we'll just remove it. For approval, we'll update it.
-    // To update, we must remove the old and add the new one.
+    // To update an object in an array, we must remove the old and add the new one.
     batch.update(customerDocRef, {
         shopConnections: arrayRemove(oldConnection)
     });
@@ -107,12 +102,17 @@ export default function RequestsPage() {
         batch.update(customerDocRef, {
             shopConnections: arrayUnion(newConnection)
         });
+    } else {
+        // If denying, we also remove the shopId from the queryable array.
+        batch.update(customerDocRef, {
+            shopConnectionIds: arrayRemove(shopId)
+        });
     }
 
     try {
         await batch.commit();
         toast({
-            title: `Request ${approve ? 'Approved' : 'Rejected'}`,
+            title: `Request ${approve ? 'Approved' : 'Denied'}`,
             description: `${customer.name}'s request has been updated.`
         });
     } catch(e: any) {

@@ -107,7 +107,8 @@ export default function CustomerProfilePage() {
     
     try {
         await updateDoc(userDocRef, {
-            shopConnections: arrayUnion(newConnection)
+            shopConnections: arrayUnion(newConnection),
+            shopConnectionIds: arrayUnion(verifiedShop.id) // Add to the queryable array
         });
         toast({ title: 'Request Sent', description: `Your request to join ${verifiedShop.name} has been sent.` });
         setShopIdInput('');
@@ -123,7 +124,8 @@ export default function CustomerProfilePage() {
     if (!userDocRef) return;
      try {
         await updateDoc(userDocRef, {
-            shopConnections: arrayRemove(shopToRemove)
+            shopConnections: arrayRemove(shopToRemove),
+            shopConnectionIds: arrayRemove(shopToRemove.shopId) // Also remove from queryable array
         });
         toast({ title: 'Shop Removed', description: `You have left ${shopToRemove.shopName}.` });
     } catch (e: any) {

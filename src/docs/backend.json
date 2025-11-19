@@ -102,6 +102,13 @@
                 "$ref": "#/backend/entities/ShopConnection"
             }
         },
+        "shopConnectionIds": {
+            "type": "array",
+            "description": "An array of shop IDs for efficient querying of connection requests.",
+            "items": {
+                "type": "string"
+            }
+        },
         "imageUrl": {
             "type": "string",
             "description": "URL for the user's profile image."
