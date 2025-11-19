@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useFieldArray, useForm, useWatch } from 'react-hook-form';
+import { useFieldArray, useForm, useWatch, Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -111,7 +111,7 @@ const getVariantCombinations = (specTypes: FormValues['specificationTypes']) => 
     return result;
 };
 
-function SpecificationValues({ specTypeIndex, control }: { specTypeIndex: number, control: any }) {
+function SpecificationValues({ specTypeIndex, control }: { specTypeIndex: number; control: Control<FormValues> }) {
     const { fields: valueFields, append: appendValue, remove: removeValue } = useFieldArray({
         control,
         name: `specificationTypes.${specTypeIndex}.values`
@@ -212,8 +212,7 @@ export default function AddProductPage() {
       };
     });
     replaceVariants(newVariants);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(watchedSpecTypes)]);
+  }, [JSON.stringify(watchedSpecTypes), replaceVariants]);
 
   useEffect(() => {
     if (watchedCategory && categories) {
@@ -224,8 +223,7 @@ export default function AddProductPage() {
             replaceSpecTypes([]);
         }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedCategory, categories]);
+  }, [watchedCategory, categories, replaceSpecTypes]);
   
 
   async function onSubmit(values: FormValues) {
@@ -411,7 +409,7 @@ export default function AddProductPage() {
                                 <TableBody>
                                     {variantFields.map((variantField, index) => (
                                         <TableRow key={variantField.id}>
-                                            {variantField.specifications.map(spec => <TableCell key={spec.value}>{spec.value}</TableCell>)}
+                                            {variantField.specifications.map(spec => <TableCell key={`${spec.name}-${spec.value}`}>{spec.value}</TableCell>)}
                                             <TableCell>
                                                  <FormField name={`variants.${index}.price`} control={form.control} render={({ field }) => (
                                                     <FormItem><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>

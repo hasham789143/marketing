@@ -182,9 +182,7 @@ export default function EditProductPage() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: async () => {
-      if (!productData) return undefined;
-      return {
+    defaultValues: productData ? {
         name: productData.name || '',
         category: productData.category || '',
         subcategory: productData.subcategory || '',
@@ -192,8 +190,7 @@ export default function EditProductPage() {
         images: productData.images?.map(url => ({ url })) || [{ url: '' }],
         specificationTypes: productData.specificationTypes || [],
         variants: productData.variants || [],
-      }
-    },
+      } : undefined,
   });
   
   useEffect(() => {
@@ -220,7 +217,21 @@ export default function EditProductPage() {
   useEffect(() => {
     if (!watchedSpecTypes) return;
 
+    // A stringified version of the current variants for comparison
+    const currentVariantsString = JSON.stringify(
+      form.getValues('variants').map(v => v.specifications)
+    );
+
     const combinations = getVariantCombinations(watchedSpecTypes);
+
+    // A stringified version of the new combinations
+    const newCombinationsString = JSON.stringify(combinations);
+    
+    // Only update if the combinations have actually changed.
+    if (currentVariantsString === newCombinationsString) {
+      return;
+    }
+    
     const newVariants = combinations.map(combo => {
       // Try to find an existing variant that matches the new combination
       const existingVariant = variantFields.find(v => 
@@ -235,12 +246,8 @@ export default function EditProductPage() {
       };
     });
     
-    // Only replace if the variants have actually changed to avoid unnecessary re-renders
-    if (JSON.stringify(newVariants) !== JSON.stringify(variantFields)) {
-        replaceVariants(newVariants);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedSpecTypes, replaceVariants]);
+    replaceVariants(newVariants);
+  }, [watchedSpecTypes, replaceVariants, form, variantFields]);
 
 
   async function onSubmit(values: FormValues) {
@@ -272,7 +279,7 @@ export default function EditProductPage() {
     }
   }
 
-  const isLoading = isUserDataLoading || isProductLoading || areCategoriesLoading;
+  const isLoading = isUserDataLoading || isProductLoading || areCategoriesLoading || !form.formState.isDirty && !productData;
   
   if (isLoading || !productData) {
     return <div className="flex w-full items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
@@ -356,7 +363,7 @@ export default function EditProductPage() {
                                 </TableRow></TableHeader>
                                 <TableBody>{variantFields.map((variantField, index) => (
                                     <TableRow key={variantField.id}>
-                                        {variantField.specifications.map(spec => <TableCell key={spec.value}>{spec.value}</TableCell>)}
+                                        {variantField.specifications.map(spec => <TableCell key={`${spec.name}-${spec.value}`}>{spec.value}</TableCell>)}
                                         <TableCell><FormField name={`variants.${index}.price`} control={form.control} render={({ field }) => (<FormItem><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} /></TableCell>
                                         <TableCell><FormField name={`variants.${index}.stockQty`} control={form.control} render={({ field }) => (<FormItem><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} /></TableCell>
                                         <TableCell><FormField name={`variants.${index}.sku`} control={form.control} render={({ field }) => (<FormItem><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} /></TableCell>
