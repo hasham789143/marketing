@@ -40,6 +40,7 @@ interface UserData {
   shopConnections?: ShopConnection[];
   name?: string;
   deliveryAddress?: string;
+  phone?: string;
 }
 
 type PaymentMethod = 'Cash on Delivery' | 'Pay at End of Month';
@@ -84,11 +85,11 @@ export default function CartPage() {
       return;
     }
     
-    if (!userData?.deliveryAddress) {
+    if (!userData?.deliveryAddress || !userData?.phone) {
       toast({
         variant: 'destructive',
         title: 'Missing Information',
-        description: 'Please add a delivery address to your profile before placing an order.',
+        description: 'Please add a delivery address and phone number to your profile before placing an order.',
       });
       router.push('/customer/profile');
       return;
