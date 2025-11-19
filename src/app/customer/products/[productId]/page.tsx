@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/carousel';
 import { Progress } from '@/components/ui/progress';
 import { Star } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -42,6 +43,8 @@ export default function ProductDetailPage() {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
 
   // We need to figure out the shop ID to fetch the product.
   const [shopId, setShopId] = useState<string | null>(null);
@@ -76,6 +79,12 @@ export default function ProductDetailPage() {
     }
     getShopId();
   }, [firestore, productId]);
+  
+  useEffect(() => {
+    if (product?.images && product.images.length > 0 && !selectedImage) {
+        setSelectedImage(product.images[0]);
+    }
+  }, [product, selectedImage]);
   
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,27 +158,19 @@ export default function ProductDetailPage() {
     <div className="container mx-auto p-4 md:p-6 lg:p-8 space-y-8">
       <Card>
         <CardContent className="p-6 grid md:grid-cols-2 gap-8">
-          <div>
-            {product.images && product.images.length > 0 ? (
-                <Carousel className="w-full">
-                  <CarouselContent>
-                    {product.images.map((imgUrl, index) => (
-                      <CarouselItem key={index}>
-                        <div className="aspect-square relative w-full rounded-lg overflow-hidden">
-                          <Image src={imgUrl} alt={`${product.name} image ${index + 1}`} fill className="object-cover" />
-                        </div>
-                      </CarouselItem>
-                    ))}
-                  </CarouselContent>
-                  <CarouselPrevious className="left-2" />
-                  <CarouselNext className="right-2" />
-                </Carousel>
-              ) : (
-                <div className="aspect-square relative w-full rounded-lg overflow-hidden bg-muted flex items-center justify-center">
-                    <p className="text-muted-foreground">No Image</p>
-                </div>
-              )}
+          {/* Left Column: Image Gallery */}
+          <div className="flex flex-col gap-4">
+              <div className="aspect-square relative w-full rounded-lg overflow-hidden border">
+                   {selectedImage ? (
+                    <Image src={selectedImage} alt={product.name} fill className="object-cover" />
+                    ) : (
+                    <div className="w-full h-full bg-muted flex items-center justify-center">
+                        <p className="text-muted-foreground">No Image</p>
+                    </div>
+                   )}
+              </div>
           </div>
+          {/* Right Column: Product Details */}
           <div className="flex flex-col gap-4">
             <Badge variant="outline" className="w-fit">{product.category}</Badge>
             <h1 className="text-3xl font-bold">{product.name}</h1>
@@ -182,6 +183,24 @@ export default function ProductDetailPage() {
                 PKR {product.variants?.[0]?.price.toLocaleString() ?? 'N/A'}
             </div>
             <Button size="lg">Add to Cart</Button>
+
+            {/* Thumbnail Gallery */}
+             {product.images && product.images.length > 1 && (
+                <div className="grid grid-cols-5 gap-2 pt-4">
+                {product.images.map((imgUrl, index) => (
+                    <div 
+                        key={index}
+                        className={cn(
+                            "aspect-square relative w-full rounded-md overflow-hidden border-2 cursor-pointer transition-all",
+                            selectedImage === imgUrl ? 'border-primary opacity-100' : 'border-transparent opacity-60 hover:opacity-100'
+                        )}
+                        onClick={() => setSelectedImage(imgUrl)}
+                    >
+                    <Image src={imgUrl} alt={`${product.name} thumbnail ${index + 1}`} fill className="object-cover" />
+                    </div>
+                ))}
+                </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -252,5 +271,3 @@ export default function ProductDetailPage() {
     </div>
   );
 }
-
-    
