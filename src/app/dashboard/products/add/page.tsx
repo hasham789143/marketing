@@ -116,6 +116,42 @@ const getVariantCombinations = (specTypes: FormValues['specificationTypes']) => 
     return result;
 };
 
+// Sub-component to manage nested specification values
+function SpecificationValues({ specTypeIndex }: { specTypeIndex: number }) {
+    const { control } = useFormContext<FormValues>();
+    const { fields: valueFields, append: appendValue, remove: removeValue } = useFieldArray({
+        control,
+        name: `specificationTypes.${specTypeIndex}.values`
+    });
+
+    return (
+        <div className="space-y-2">
+            {valueFields.map((valueField, valueIndex) => (
+                <div key={valueField.id} className="flex items-center gap-2">
+                    <FormField 
+                        name={`specificationTypes.${specTypeIndex}.values.${valueIndex}`} 
+                        control={control} 
+                        render={({ field }) => (
+                            <FormItem className="flex-grow">
+                                <FormControl>
+                                    <Input placeholder="e.g. Red, Large, 8GB" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} 
+                    />
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeValue(valueIndex)}>
+                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={() => appendValue('')}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add Value
+            </Button>
+        </div>
+    );
+}
 
 export default function AddProductPage() {
   const firestore = useFirestore();
@@ -346,24 +382,7 @@ export default function AddProductPage() {
                                 </div>
                                 <div className="pl-4 space-y-2">
                                      <FormLabel>Values</FormLabel>
-                                     <useFieldArray control={form.control} name={`specificationTypes.${specTypeIndex}.values`}>
-                                        {({ fields: valueFields, append: appendValue, remove: removeValue }) => (
-                                        <div className="space-y-2">
-                                            {valueFields.map((valueField, valueIndex) => (
-                                                <div key={valueField.id} className="flex items-center gap-2">
-                                                     <FormField name={`specificationTypes.${specTypeIndex}.values.${valueIndex}`} control={form.control} render={({ field }) => (
-                                                        <FormItem className="flex-grow">
-                                                            <FormControl><Input placeholder="e.g. Red, Large, 8GB" {...field} /></FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )} />
-                                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeValue(valueIndex)}><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
-                                                </div>
-                                            ))}
-                                            <Button type="button" variant="outline" size="sm" onClick={() => appendValue('')}><PlusCircle className="mr-2 h-4 w-4" />Add Value</Button>
-                                        </div>
-                                        )}
-                                    </useFieldArray>
+                                     <SpecificationValues specTypeIndex={specTypeIndex} />
                                 </div>
                             </div>
                         ))}
