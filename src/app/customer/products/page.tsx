@@ -66,90 +66,9 @@ const ProductGrid = ({ products }: { products: Product[] }) => {
   }, [user, firestore]);
   const { data: cartItems } = useCollection<CartItem>(cartRef);
 
-  const handleAddToCart = async (e: React.MouseEvent, product: Product) => {
-    e.preventDefault(); // Prevent navigating to product detail page
-    if (!user || !firestore) {
-      toast({
-        variant: 'destructive',
-        title: 'Not Logged In',
-        description: 'You must be logged in to add items to your cart.',
-      });
-      return;
-    }
-
-    const variantToAdd = product.variants?.[0];
-    if (!variantToAdd) {
-      toast({
-        variant: 'destructive',
-        title: 'Product Unavailable',
-        description: 'This product has no purchasable options.',
-      });
-      return;
-    }
-    
-    if (cartItems && cartItems.length > 0 && cartItems.some(item => item.shopId !== product.shopId)) {
-        toast({
-            variant: 'destructive',
-            title: 'Multiple Shops Not Supported',
-            description: 'Your cart contains items from another shop. Please clear your cart or complete that order first.',
-        });
-        return;
-    }
-
-    try {
-        await runTransaction(firestore, async (transaction) => {
-            const productRef = doc(firestore, `shops/${product.shopId}/products`, product.id);
-            const productDoc = await transaction.get(productRef);
-            
-            if (!productDoc.exists()) {
-                throw new Error("Product not found!");
-            }
-
-            const productData = productDoc.data() as Product;
-            const currentVariant = productData.variants?.find(v => v.sku === variantToAdd.sku);
-
-            const cartCollectionRef = collection(firestore, `users/${user.uid}/cart`);
-            const cartItemRef = doc(cartCollectionRef, `${product.id}-${variantToAdd.sku}`);
-            const cartItemDoc = await transaction.get(cartItemRef);
-
-            const quantityInCart = cartItemDoc.exists() ? cartItemDoc.data().quantity : 0;
-            
-            if (!currentVariant || currentVariant.stockQty <= quantityInCart) {
-                throw new Error("This item is out of stock.");
-            }
-            
-            if (cartItemDoc.exists()) {
-                const newQuantity = cartItemDoc.data().quantity + 1;
-                transaction.update(cartItemRef, { quantity: newQuantity });
-            } else {
-                transaction.set(cartItemRef, {
-                    productId: product.id,
-                    name: product.name,
-                    price: variantToAdd.price,
-                    quantity: 1,
-                    sku: variantToAdd.sku,
-                    imageUrl: product.images?.[0] || null,
-                    shopId: product.shopId,
-                });
-            }
-        });
-
-      toast({
-        title: 'Added to Cart',
-        description: `${product.name} has been added to your cart.`,
-      });
-    } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Failed to Add to Cart',
-        description: error.message,
-      });
-    }
-  };
-  
   const getProductStock = (product: Product) => {
-      const displayVariant = product.variants?.[0];
-      return displayVariant?.stockQty ?? 0;
+      // For the grid, we can just show the total stock of all variants.
+      return product.variants?.reduce((acc, v) => acc + v.stockQty, 0) ?? 0;
   }
 
   const capitalizeFirstLetter = (string: string) => {
@@ -189,11 +108,8 @@ const ProductGrid = ({ products }: { products: Product[] }) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {products.map((product) => {
                 const imageUrl = product.images?.[0];
-                const displayVariant = product.variants?.[0];
-                const price = displayVariant?.price ?? 0;
-                const stock = getProductStock(product);
-                const cartItem = cartItems?.find(item => item.productId === product.id && item.sku === displayVariant?.sku);
-                const effectiveStock = stock - (cartItem?.quantity || 0);
+                const lowestPrice = product.variants?.reduce((min, v) => v.price < min ? v.price : min, product.variants[0]?.price ?? 0) ?? 0;
+                const hasMultiplePrices = product.variants ? new Set(product.variants.map(v => v.price)).size > 1 : false;
 
                 return (
                   <Link key={`${product.shopId}-${product.id}`} href={`/customer/products/${product.id}`} className="group block">
@@ -213,29 +129,20 @@ const ProductGrid = ({ products }: { products: Product[] }) => {
                                   <span className="text-sm text-muted-foreground">No Image</span>
                               </div>
                           )}
+                           <Badge variant="outline" className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm">{product.category}</Badge>
                       </div>
                       <CardContent className="p-4 flex-grow flex flex-col justify-between gap-4">
                           <div className="space-y-2">
-                            <div className="flex justify-between items-start gap-2">
-                              <h3 className="font-semibold text-base leading-tight">{capitalizeFirstLetter(product.name)}</h3>
-                               <Badge variant="outline">{product.category}</Badge>
-                            </div>
-                            <div className="flex justify-between items-baseline">
-                              <p className="font-bold text-lg text-primary">
-                                  PKR {price.toLocaleString()}
-                              </p>
-                               <p className={`text-xs font-medium ${effectiveStock > 5 ? 'text-green-600' : 'text-red-600'}`}>
-                                  {effectiveStock > 0 ? `${effectiveStock} in stock` : 'Out of stock'}
-                              </p>
-                            </div>
+                            <h3 className="font-semibold text-base leading-tight group-hover:text-primary transition-colors">{capitalizeFirstLetter(product.name)}</h3>
+                            <p className="font-bold text-lg text-primary">
+                                PKR {lowestPrice.toLocaleString()}{hasMultiplePrices ? '+' : ''}
+                            </p>
                           </div>
                           <Button 
                             className="w-full mt-2" 
-                            disabled={effectiveStock <= 0}
-                            onClick={(e) => handleAddToCart(e, product)}
+                            variant="outline"
                           >
-                              <ShoppingCart className="mr-2 h-4 w-4" />
-                              {effectiveStock <= 0 ? 'Out of Stock' : 'Add to Cart'}
+                              View Options
                           </Button>
                       </CardContent>
                     </Card>
@@ -364,5 +271,3 @@ export default function CustomerProductsPage() {
     </div>
   );
 }
-
-    
