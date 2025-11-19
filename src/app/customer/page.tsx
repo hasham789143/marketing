@@ -164,7 +164,7 @@ export default function CustomerDashboardPage() {
   }
 
   return (
-    <div className="grid gap-8">
+    <div className="p-4 md:p-6 lg:p-8 grid gap-8">
         {activeShopConnections.length > 0 ? (
             activeShopConnections.map(connection => (
                 <ShopDashboardCard key={connection.shopId} shopId={connection.shopId} />

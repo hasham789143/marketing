@@ -163,7 +163,7 @@ export default function CustomerProfilePage() {
   }
 
   return (
-    <div className="grid w-full gap-8">
+    <div className="p-4 md:p-6 lg:p-8 grid w-full gap-8">
         <h1 className="text-3xl font-bold tracking-tight font-headline">My Profile</h1>
         
         <Card>
@@ -200,7 +200,7 @@ export default function CustomerProfilePage() {
             <CardContent>
                 <div className="space-y-4">
                     <Label htmlFor="shop-id-input">Request to Join a New Shop</Label>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                         <Input 
                             id="shop-id-input"
                             placeholder="Enter Shop ID"
@@ -230,7 +230,7 @@ export default function CustomerProfilePage() {
                 <div className="space-y-3">
                      {userProfile?.shopConnections && userProfile.shopConnections.length > 0 ? (
                         userProfile.shopConnections.map((conn) => (
-                           <div key={conn.shopId} className="flex items-center justify-between p-3 border rounded-lg">
+                           <div key={conn.shopId} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 border rounded-lg gap-2">
                                 <div>
                                     <p className="font-medium">{conn.shopName}</p>
                                     <p className="text-sm text-muted-foreground">{conn.shopId}</p>

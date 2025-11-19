@@ -82,7 +82,7 @@ export default function CustomerOrdersPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 lg:p-8">
+    <div className="container mx-auto p-4 md:p-6 lg:p-8">
       <div className="mb-4">
         <h1 className="text-2xl font-bold">My Bills</h1>
         <p className="text-muted-foreground">A list of all your past bills. Click one to see details.</p>
@@ -92,7 +92,7 @@ export default function CustomerOrdersPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Bill ID</TableHead>
-              <TableHead>Date</TableHead>
+              <TableHead className="hidden sm:table-cell">Date</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Total</TableHead>
             </TableRow>
@@ -122,8 +122,8 @@ export default function CustomerOrdersPage() {
             {!isLoading && activeShop &&
               orders?.map((order) => (
                 <TableRow key={order.id} onClick={() => handleOrderClick(order.id)} className="cursor-pointer">
-                  <TableCell className="font-medium truncate max-w-24 md:max-w-none">{order.id}</TableCell>
-                  <TableCell>{order.date ? format(new Date(order.date), 'PP') : 'N/A'}</TableCell>
+                  <TableCell className="font-medium truncate max-w-24 md:max-w-xs">{order.id}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{order.date ? format(new Date(order.date), 'PP') : 'N/A'}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(order.status)}>{order.status}</Badge>
                   </TableCell>

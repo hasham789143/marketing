@@ -1,13 +1,5 @@
 'use client';
 import Image from 'next/image';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  CardFooter,
-} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -168,100 +160,103 @@ export default function CartPage() {
 };
 
   return (
-    <div className="p-4 md:p-6 lg:p-8">
+    <div className="container mx-auto p-4 md:p-6 lg:p-8">
       <div className="mb-4">
         <h1 className="text-2xl font-bold">My Shopping Cart</h1>
         <p className="text-muted-foreground">Review your items before placing an order.</p>
       </div>
-
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[100px]">Product</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Quantity</TableHead>
-            <TableHead className="text-right">Price</TableHead>
-            <TableHead className="w-[50px]"><span className="sr-only">Remove</span></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {isLoading && (
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={5} className="text-center">Loading cart...</TableCell>
+              <TableHead className="w-[80px]">Product</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Quantity</TableHead>
+              <TableHead className="text-right">Price</TableHead>
+              <TableHead className="w-[50px]"><span className="sr-only">Remove</span></TableHead>
             </TableRow>
-          )}
-          {!isLoading && (!cartItems || cartItems.length === 0) && (
+          </TableHeader>
+          <TableBody>
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center">Loading cart...</TableCell>
+              </TableRow>
+            )}
+            {!isLoading && (!cartItems || cartItems.length === 0) && (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center">Your cart is empty.</TableCell>
+              </TableRow>
+            )}
+            {!isLoading &&
+              cartItems?.map((item) => {
+                return (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <Image
+                        alt={item.name}
+                        className="aspect-square rounded-md object-cover"
+                        height="64"
+                        src={item.imageUrl || 'https://placehold.co/64x64'}
+                        width="64"
+                        data-ai-hint={'product image'}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">{item.name}</TableCell>
+                    <TableCell>{item.quantity}</TableCell>
+                    <TableCell className="text-right">PKR {item.price.toLocaleString()}</TableCell>
+                     <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(item.id)}>
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Remove item</span>
+                        </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+          </TableBody>
+          <TableFooter>
             <TableRow>
-              <TableCell colSpan={5} className="text-center">Your cart is empty.</TableCell>
+              <TableCell colSpan={4}>Subtotal</TableCell>
+              <TableCell className="text-right">PKR {subtotal.toLocaleString()}</TableCell>
             </TableRow>
-          )}
-          {!isLoading &&
-            cartItems?.map((item) => {
-              return (
-                <TableRow key={item.id}>
-                  <TableCell>
-                    <Image
-                      alt={item.name}
-                      className="aspect-square rounded-md object-cover"
-                      height="64"
-                      src={item.imageUrl || 'https://placehold.co/64x64'}
-                      width="64"
-                      data-ai-hint={'product image'}
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium">{item.name}</TableCell>
-                  <TableCell>{item.quantity}</TableCell>
-                  <TableCell className="text-right">PKR {item.price.toLocaleString()}</TableCell>
-                   <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(item.id)}>
-                          <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">Remove item</span>
-                      </Button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-        </TableBody>
-        <TableFooter>
-          <TableRow>
-            <TableCell colSpan={4}>Subtotal</TableCell>
-            <TableCell className="text-right">PKR {subtotal.toLocaleString()}</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell colSpan={4}>Delivery Charge</TableCell>
-            <TableCell className="text-right">PKR {deliveryCharge.toLocaleString()}</TableCell>
-          </TableRow>
-          <TableRow className="font-semibold">
-            <TableCell colSpan={4}>Total</TableCell>
-            <TableCell className="text-right">PKR {total.toLocaleString()}</TableCell>
-          </TableRow>
-        </TableFooter>
-      </Table>
+            <TableRow>
+              <TableCell colSpan={4}>Delivery Charge</TableCell>
+              <TableCell className="text-right">PKR {deliveryCharge.toLocaleString()}</TableCell>
+            </TableRow>
+            <TableRow className="font-semibold">
+              <TableCell colSpan={4}>Total</TableCell>
+              <TableCell className="text-right">PKR {total.toLocaleString()}</TableCell>
+            </TableRow>
+          </TableFooter>
+        </Table>
+      </div>
 
       <Separator className="my-6" />
 
-      <div className="space-y-4">
-          <h3 className="text-lg font-medium">Payment Method</h3>
-          <RadioGroup value={paymentMethod} onValueChange={(value: PaymentMethod) => setPaymentMethod(value)}>
-              <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="Cash on Delivery" id="cod" />
-                  <Label htmlFor="cod">Cash on Delivery (COD)</Label>
-              </div>
-               <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="Pay at End of Month" id="monthly" />
-                  <Label htmlFor="monthly">Pay at End of Month</Label>
-              </div>
-          </RadioGroup>
-      </div>
+      <div className="grid md:grid-cols-2 gap-8">
+        <div className="space-y-4">
+            <h3 className="text-lg font-medium">Payment Method</h3>
+            <RadioGroup value={paymentMethod} onValueChange={(value: PaymentMethod) => setPaymentMethod(value)} className="space-y-2">
+                <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="Cash on Delivery" id="cod" />
+                    <Label htmlFor="cod">Cash on Delivery (COD)</Label>
+                </div>
+                 <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="Pay at End of Month" id="monthly" />
+                    <Label htmlFor="monthly">Pay at End of Month</Label>
+                </div>
+            </RadioGroup>
+        </div>
 
-      <div className="mt-6">
-        <Button
-          className="w-full"
-          onClick={handlePlaceOrder}
-          disabled={isLoading || !cartItems || cartItems.length === 0}
-        >
-          Place Order
-        </Button>
+        <div className="flex flex-col justify-end">
+          <Button
+            className="w-full"
+            onClick={handlePlaceOrder}
+            disabled={isLoading || !cartItems || cartItems.length === 0}
+          >
+            Place Order
+          </Button>
+        </div>
       </div>
     </div>
   );

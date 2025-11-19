@@ -179,11 +179,11 @@ export default function CustomerProductsPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 lg:p-8">
+    <div className="container mx-auto p-4 md:p-6 lg:p-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Browse Products</h1>
         <p className="text-muted-foreground">
-          {activeShops.length > 0 ? "Select a shop to browse its products." : "You are not connected to any shops. Add a shop from your profile to start browsing."}
+          {activeShops.length > 0 ? "Explore products from your connected shops." : "You are not connected to any shops. Add a shop from your profile to start browsing."}
         </p>
         <div className="pt-4 grid md:grid-cols-2 gap-4">
             <div>
