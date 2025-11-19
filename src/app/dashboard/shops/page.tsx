@@ -35,6 +35,7 @@ interface Shop {
     shopName: string;
     ownerUserId: string;
     status: string;
+    phone: string;
     createdAt: Timestamp;
 }
 
@@ -91,6 +92,7 @@ export default function ShopsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Shop Name</TableHead>
+              <TableHead>Contact</TableHead>
               <TableHead>Shop ID</TableHead>
               <TableHead>Owner ID</TableHead>
               <TableHead>Status</TableHead>
@@ -101,10 +103,11 @@ export default function ShopsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Loading shops...</TableCell></TableRow>}
+            {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Loading shops...</TableCell></TableRow>}
             {!isLoading && shops?.map((shop) => (
               <TableRow key={shop.id}>
                 <TableCell className="font-medium">{shop.shopName}</TableCell>
+                <TableCell>{shop.phone}</TableCell>
                 <TableCell>{shop.id}</TableCell>
                 <TableCell>{shop.ownerUserId}</TableCell>
                 <TableCell>
