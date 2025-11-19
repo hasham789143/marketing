@@ -1,3 +1,5 @@
+import { Timestamp } from 'firebase/firestore';
+
 export type ProductVariant = {
   sku: string;
   price: number;
@@ -47,7 +49,7 @@ export interface Review {
   targetId: string;
   rating: number;
   comment: string;
-  createdAt: string;
+  createdAt: Timestamp | string;
 }
 
 
@@ -58,5 +60,3 @@ export const orders: Order[] = [];
 export const staff: Staff[] = [];
 
 export const staffActivityLogs: ActivityLog[] = [];
-
-    
