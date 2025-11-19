@@ -182,7 +182,9 @@ export default function EditProductPage() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: productData ? {
+    defaultValues: async () => {
+      if (!productData) return undefined;
+      return {
         name: productData.name || '',
         category: productData.category || '',
         subcategory: productData.subcategory || '',
@@ -190,7 +192,8 @@ export default function EditProductPage() {
         images: productData.images?.map(url => ({ url })) || [{ url: '' }],
         specificationTypes: productData.specificationTypes || [],
         variants: productData.variants || [],
-    } : undefined,
+      }
+    },
   });
   
   useEffect(() => {
@@ -215,9 +218,7 @@ export default function EditProductPage() {
 
   // Synchronize variants table with specification types
   useEffect(() => {
-    // Only run this logic if the form is dirty (i.e., user has interacted with it)
-    // This prevents it from running on initial load and wiping out existing variant data.
-    if (!form.formState.isDirty || !watchedSpecTypes) return;
+    if (!watchedSpecTypes) return;
 
     const combinations = getVariantCombinations(watchedSpecTypes);
     const newVariants = combinations.map(combo => {
@@ -239,7 +240,7 @@ export default function EditProductPage() {
         replaceVariants(newVariants);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedSpecTypes, replaceVariants, form.formState.isDirty]);
+  }, [watchedSpecTypes, replaceVariants]);
 
 
   async function onSubmit(values: FormValues) {
@@ -273,7 +274,7 @@ export default function EditProductPage() {
 
   const isLoading = isUserDataLoading || isProductLoading || areCategoriesLoading;
   
-  if (isLoading || !productData || form.formState.isLoading || !form.formState.isDirty) {
+  if (isLoading || !productData) {
     return <div className="flex w-full items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   }
   if (!isOwner) {
