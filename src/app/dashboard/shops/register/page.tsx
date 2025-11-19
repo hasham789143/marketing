@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -7,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -21,18 +23,21 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useAuth, useFirestore } from '@/firebase';
-import { addDoc, collection, doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { Separator } from '@/components/ui/separator';
 
 
 const formSchema = z.object({
   shopName: z.string().min(2, { message: 'Shop name must be at least 2 characters.' }),
+  shopImageUrl: z.string().url({ message: "Please enter a valid URL for the shop image." }),
   ownerName: z.string().min(2, { message: 'Owner name must be at least 2 characters.' }),
   ownerEmail: z.string().email({ message: 'Invalid email address.' }),
   ownerPassword: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
+  ownerImageUrl: z.string().url({ message: "Please enter a valid URL for the owner's image." }),
   phone: z.string().min(1, { message: 'Phone number is required.' }),
   deliveryChargeDefault: z.coerce.number().min(0, { message: 'Must be a positive number.' }),
   currency: z.string().min(2, { message: 'Currency is required.' }),
@@ -49,9 +54,11 @@ export default function RegisterShopPage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       shopName: '',
+      shopImageUrl: '',
       ownerName: '',
       ownerEmail: '',
       ownerPassword: '',
+      ownerImageUrl: '',
       phone: '',
       deliveryChargeDefault: 150,
       currency: 'PKR',
@@ -75,6 +82,7 @@ export default function RegisterShopPage() {
           ownerUserId: ownerUser.uid,
           email: values.ownerEmail,
           phone: values.phone,
+          shopImageUrl: values.shopImageUrl,
           deliveryChargeDefault: values.deliveryChargeDefault,
           currency: values.currency,
           taxRate: values.taxRate,
@@ -90,6 +98,7 @@ export default function RegisterShopPage() {
         phone: values.phone,
         role: 'owner',
         shopId: shopId,
+        imageUrl: values.ownerImageUrl,
         createdAt: new Date().toISOString()
       });
 
@@ -119,6 +128,8 @@ export default function RegisterShopPage() {
             <CardContent>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <Separator />
+                    <h3 className="text-lg font-medium">Shop Details</h3>
                     <FormField
                         control={form.control}
                         name="shopName"
@@ -132,6 +143,35 @@ export default function RegisterShopPage() {
                         </FormItem>
                         )}
                     />
+                    <FormField
+                        control={form.control}
+                        name="shopImageUrl"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Shop Image URL</FormLabel>
+                            <FormControl>
+                            <Input placeholder="https://example.com/shop-banner.jpg" {...field} />
+                            </FormControl>
+                             <FormDescription>This image will be used for the customer-facing slider.</FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                     <FormField
+                        control={form.control}
+                        name="phone"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Shop Phone Number</FormLabel>
+                            <FormControl>
+                            <Input placeholder="+92 300 1234567" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                     <Separator />
+                    <h3 className="text-lg font-medium">Owner Details</h3>
                      <FormField
                         control={form.control}
                         name="ownerName"
@@ -173,19 +213,22 @@ export default function RegisterShopPage() {
                             )}
                         />
                     </div>
-                     <FormField
+                    <FormField
                         control={form.control}
-                        name="phone"
+                        name="ownerImageUrl"
                         render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Shop Phone Number</FormLabel>
+                            <FormLabel>Owner Image URL</FormLabel>
                             <FormControl>
-                            <Input placeholder="+92 300 1234567" {...field} />
+                            <Input placeholder="https://example.com/owner-photo.jpg" {...field} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
                         )}
                     />
+
+                    <Separator />
+                    <h3 className="text-lg font-medium">Financial Details</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <FormField
                             control={form.control}
@@ -228,7 +271,9 @@ export default function RegisterShopPage() {
                         />
                     </div>
                     
-                    <Button type="submit" className="w-full">Register Shop</Button>
+                    <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                        {form.formState.isSubmitting ? 'Registering...' : 'Register Shop'}
+                    </Button>
                 </form>
             </Form>
             </CardContent>
@@ -236,3 +281,5 @@ export default function RegisterShopPage() {
     </div>
   );
 }
+
+    

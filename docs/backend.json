@@ -28,6 +28,10 @@
           "type": "string",
           "description": "Phone number of the shop."
         },
+        "shopImageUrl": {
+            "type": "string",
+            "description": "URL for the shop's main image, used in customer-facing sliders."
+        },
         "deliveryChargeDefault": {
           "type": "number",
           "description": "Default delivery charge for the shop."
@@ -56,6 +60,7 @@
         "ownerUserId",
         "email",
         "phone",
+        "shopImageUrl",
         "deliveryChargeDefault",
         "currency",
         "taxRate",
@@ -94,6 +99,10 @@
           "type": "string",
           "description": "Reference to the Shop the user belongs to. Nullable for admins and customers. (Relationship: Shop 1:N User)"
         },
+        "imageUrl": {
+            "type": "string",
+            "description": "URL for the user's profile image."
+        },
         "createdAt": {
           "type": "string",
           "description": "Timestamp when the user was created.",
@@ -106,6 +115,7 @@
         "email",
         "phone",
         "role",
+        "imageUrl",
         "createdAt"
       ]
     },
@@ -537,3 +547,5 @@
     "reasoning": "The Firestore data structure is designed to support a multi-shop, multi-user application with features like shop registration, product and order management, staff activity logging, and reporting. The design prioritizes authorization independence by denormalizing authorization data to avoid `get()` calls in security rules, and it ensures clear segregation of data for different access needs. \n\nAuthorization Independence is achieved through denormalization. For instance, the `users/{userId}` collection, intended for user data, includes the `shopId` field, referencing the shop to which the user belongs. This duplication of the relationship eliminates the need to perform a `get()` operation to verify shop information on a user document, improving authorization independence.\n\nTo support the QAPs (Rules are not Filters) principle, we utilize structural segregation and membership maps:\n\n*   **Shops and Products:** The `/shops/{shopId}` collection stores shop-related data. The `/shops/{shopId}/products/{productId}` subcollection stores products.  This allows shop owners to manage their own products without needing access to other shops' data.\n*   **Users:** The `/users/{userId}` collection houses user data, including the user's `role` and `shopId`. This design enables role-based access control for different functionalities.\n*   **Orders:** Orders are structured under the `/shops/{shopId}/orders/{orderId}` path, ensuring that orders are scoped to their respective shops. This facilitates secure `list` operations, as each shop can only access its own order data.\n*   **Audit Logs:** Audit logs are stored in the `/audit_logs/{logId}` collection, capturing user activities across the platform. Each log entry includes the `actorUserId`, `action`, `objectType`, and `objectId`, enabling detailed tracking of user actions and changes made to data.\n\nThis structure enables robust security rules, facilitating the implementation of DBAC (Database-Based Access Control) without relying on custom claims. Furthermore, it aligns with the principles of data clarity and predictability, using explicit state modeling (e.g., `orderStatus` field) and consistent naming conventions."
   }
 }
+
+    
