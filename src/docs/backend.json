@@ -95,9 +95,12 @@
           "type": "string",
           "description": "Role of the user (admin, owner, staff, customer)."
         },
-        "shopId": {
-          "type": "string",
-          "description": "Reference to the Shop the user belongs to. Nullable for admins and customers. (Relationship: Shop 1:N User)"
+        "shopConnections": {
+            "type": "array",
+            "description": "An array of shops the user is connected to, along with their status.",
+            "items": {
+                "$ref": "#/backend/entities/ShopConnection"
+            }
         },
         "imageUrl": {
             "type": "string",
@@ -118,6 +121,27 @@
         "imageUrl",
         "createdAt"
       ]
+    },
+    "ShopConnection": {
+        "title": "ShopConnection",
+        "type": "object",
+        "description": "Represents a user's connection to a shop.",
+        "properties": {
+            "shopId": {
+                "type": "string",
+                "description": "The ID of the shop."
+            },
+            "shopName": {
+                "type": "string",
+                "description": "The name of the shop (denormalized for display)."
+            },
+            "status": {
+                "type": "string",
+                "description": "The status of the connection.",
+                "enum": ["pending", "active", "rejected"]
+            }
+        },
+        "required": ["shopId", "shopName", "status"]
     },
     "Product": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -411,6 +435,20 @@
         "timestamp",
         "metadata"
       ]
+    },
+    "ConnectionRequest": {
+        "title": "ConnectionRequest",
+        "type": "object",
+        "description": "Represents a customer's request to connect with a shop.",
+        "properties": {
+            "requestId": { "type": "string" },
+            "shopId": { "type": "string" },
+            "customerId": { "type": "string" },
+            "customerName": { "type": "string" },
+            "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+            "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["requestId", "shopId", "customerId", "customerName", "status", "createdAt"]
     }
   },
   "auth": {
@@ -444,7 +482,7 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores user information, including their role and shopId. This design facilitates role-based access control and ensures efficient user management.  Includes denormalized `shopId` from Shop.",
+          "description": "Stores user information, including their role and shop connections. This design facilitates role-based access control and ensures efficient user management.",
           "params": [
             {
               "name": "userId",
@@ -489,6 +527,26 @@
                     "description": "Unique identifier for the category."
                 }
             ]
+        }
+      },
+       {
+        "path": "/shops/{shopId}/connectionRequests/{requestId}",
+        "definition": {
+          "entityName": "ConnectionRequest",
+          "schema": {
+            "$ref": "#/backend/entities/ConnectionRequest"
+          },
+          "description": "Stores customer requests to connect with a shop.",
+          "params": [
+            {
+              "name": "shopId",
+              "description": "Unique identifier for the shop."
+            },
+            {
+                "name": "requestId",
+                "description": "Unique identifier for the connection request."
+            }
+          ]
         }
       },
       {
@@ -544,6 +602,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to support a multi-shop, multi-user application with features like shop registration, product and order management, staff activity logging, and reporting. The design prioritizes authorization independence by denormalizing authorization data to avoid `get()` calls in security rules, and it ensures clear segregation of data for different access needs. \n\nAuthorization Independence is achieved through denormalization. For instance, the `users/{userId}` collection, intended for user data, includes the `shopId` field, referencing the shop to which the user belongs. This duplication of the relationship eliminates the need to perform a `get()` operation to verify shop information on a user document, improving authorization independence.\n\nTo support the QAPs (Rules are not Filters) principle, we utilize structural segregation and membership maps:\n\n*   **Shops and Products:** The `/shops/{shopId}` collection stores shop-related data. The `/shops/{shopId}/products/{productId}` subcollection stores products.  This allows shop owners to manage their own products without needing access to other shops' data.\n*   **Users:** The `/users/{userId}` collection houses user data, including the user's `role` and `shopId`. This design enables role-based access control for different functionalities.\n*   **Orders:** Orders are structured under the `/shops/{shopId}/orders/{orderId}` path, ensuring that orders are scoped to their respective shops. This facilitates secure `list` operations, as each shop can only access its own order data.\n*   **Audit Logs:** Audit logs are stored in the `/audit_logs/{logId}` collection, capturing user activities across the platform. Each log entry includes the `actorUserId`, `action`, `objectType`, and `objectId`, enabling detailed tracking of user actions and changes made to data.\n\nThis structure enables robust security rules, facilitating the implementation of DBAC (Database-Based Access Control) without relying on custom claims. Furthermore, it aligns with the principles of data clarity and predictability, using explicit state modeling (e.g., `orderStatus` field) and consistent naming conventions."
+    "reasoning": "The Firestore data structure is designed to support a multi-shop, multi-user application with features like shop registration, product and order management, staff activity logging, and reporting. The design prioritizes authorization independence by denormalizing authorization data to avoid `get()` calls in security rules, and it ensures clear segregation of data for different access needs. \n\nAuthorization Independence is achieved through denormalization. For instance, the `users/{userId}` collection, intended for user data, now includes the `shopConnections` array, referencing the shops to which the user is connected. This duplication of the relationship eliminates the need to perform a `get()` operation to verify shop information on a user document, improving authorization independence.\n\nTo support the QAPs (Rules are not Filters) principle, we utilize structural segregation and membership maps:\n\n*   **Shops and Products:** The `/shops/{shopId}` collection stores shop-related data. The `/shops/{shopId}/products/{productId}` subcollection stores products.  This allows shop owners to manage their own products without needing access to other shops' data.\n*   **Users:** The `/users/{userId}` collection houses user data, including the user's `role` and `shopConnections`.\n*   **Connection Requests**: A new top-level collection `connection_requests` is added to manage customer requests to join a shop. This allows shop owners to query for pending requests efficiently.\n*   **Orders:** Orders are structured under the `/shops/{shopId}/orders/{orderId}` path, ensuring that orders are scoped to their respective shops. This facilitates secure `list` operations, as each shop can only access its own order data.\n*   **Audit Logs:** Audit logs are stored in the `/audit_logs/{logId}` collection, capturing user activities across the platform. Each log entry includes the `actorUserId`, `action`, `objectType`, and `objectId`, enabling detailed tracking of user actions and changes made to data.\n\nThis structure enables robust security rules, facilitating the implementation of DBAC (Database-Based Access Control) without relying on custom claims. Furthermore, it aligns with the principles of data clarity and predictability, using explicit state modeling (e.g., `orderStatus` field) and consistent naming conventions."
   }
 }

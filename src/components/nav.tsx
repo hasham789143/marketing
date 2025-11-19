@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -20,6 +21,7 @@ import {
   Users2,
   ShoppingBag,
   List,
+  BellRing,
 } from 'lucide-react';
 import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -35,6 +37,7 @@ const shopNavItems = [
   { href: '/dashboard/orders', label: 'Orders', icon: ShoppingCart },
   { href: '/dashboard/products', label: 'Products', icon: Box },
   { href: '/dashboard/categories', label: 'Categories', icon: List },
+  { href: '/dashboard/requests', label: 'Requests', icon: BellRing },
   { href: '/dashboard/customers', label: 'Customers', icon: Users },
   { href: '/dashboard/staff', label: 'Staff', icon: Users2 },
 ];
