@@ -38,6 +38,19 @@ export type ActivityLog = {
   timestamp: string;
 };
 
+export interface Review {
+  id: string;
+  reviewId: string;
+  reviewerId: string;
+  reviewerName: string;
+  targetType: 'product' | 'shop';
+  targetId: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
+
 export const products: Product[] = [];
 
 export const orders: Order[] = [];
