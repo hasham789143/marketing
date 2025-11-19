@@ -10,8 +10,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { addDoc, collection, doc, serverTimestamp, getDocs, getDoc } from 'firebase/firestore';
-import { Product, Review } from '@/lib/data';
+import { addDoc, collection, doc, serverTimestamp, getDocs, getDoc, runTransaction } from 'firebase/firestore';
+import { Product, ProductVariant, Review, SpecificationValue } from '@/lib/data';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,16 +21,19 @@ import { useState, useEffect, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { StarRating } from '@/components/ui/star-rating';
 import { ReviewCard } from '@/components/review-card';
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from '@/components/ui/carousel';
 import { Progress } from '@/components/ui/progress';
 import { Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Label } from '@/components/ui/label';
+
+// Helper to check if two specification arrays are identical
+const areSpecificationsEqual = (specs1: SpecificationValue[], specs2: SpecificationValue[]) => {
+  if (specs1.length !== specs2.length) return false;
+  const sortedSpecs1 = [...specs1].sort((a, b) => a.name.localeCompare(b.name));
+  const sortedSpecs2 = [...specs2].sort((a, b) => a.name.localeCompare(b.name));
+  return sortedSpecs1.every((spec, index) => spec.name === sortedSpecs2[index].name && spec.value === sortedSpecs2[index].value);
+};
+
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -39,15 +42,17 @@ export default function ProductDetailPage() {
   const { toast } = useToast();
   const productId = params.productId as string;
 
-  // State for the review form
+  const [shopId, setShopId] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  
+  // State for review form
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-
-
-  // We need to figure out the shop ID to fetch the product.
-  const [shopId, setShopId] = useState<string | null>(null);
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  
+  // State for variant selection
+  const [selectedSpecifications, setSelectedSpecifications] = useState<{ [key: string]: string }>({});
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
 
   const productDocRef = useMemoFirebase(() => {
     if (!shopId) return null;
@@ -84,7 +89,33 @@ export default function ProductDetailPage() {
     if (product?.images && product.images.length > 0 && !selectedImage) {
         setSelectedImage(product.images[0]);
     }
+
+    // Set default selections for specifications and find the default variant
+    if (product?.specificationTypes && product?.variants) {
+      const defaultSelections: { [key: string]: string } = {};
+      product.specificationTypes.forEach(specType => {
+        if (specType.values.length > 0) {
+          defaultSelections[specType.name] = specType.values[0];
+        }
+      });
+      setSelectedSpecifications(defaultSelections);
+    }
+
   }, [product, selectedImage]);
+
+  // Effect to find the matching variant whenever selections change
+  useEffect(() => {
+    if (product?.variants && Object.keys(selectedSpecifications).length > 0) {
+      const selectionArray: SpecificationValue[] = Object.entries(selectedSpecifications).map(([name, value]) => ({ name, value }));
+      
+      const foundVariant = product.variants.find(variant => 
+        areSpecificationsEqual(variant.specifications, selectionArray)
+      );
+      
+      setSelectedVariant(foundVariant || null);
+    }
+  }, [selectedSpecifications, product?.variants]);
+
   
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,10 +129,10 @@ export default function ProductDetailPage() {
     }
     if (!reviewsRef) return;
     
-    setIsSubmitting(true);
+    setIsSubmittingReview(true);
     try {
         await addDoc(reviewsRef, {
-            reviewId: '', // Firestore will generate this
+            reviewId: '',
             reviewerId: user.uid,
             reviewerName: user.displayName || 'Anonymous',
             targetType: 'product',
@@ -116,7 +147,7 @@ export default function ProductDetailPage() {
     } catch(error: any) {
         toast({ variant: 'destructive', title: 'Failed to submit review', description: error.message });
     } finally {
-        setIsSubmitting(false);
+        setIsSubmittingReview(false);
     }
   };
   
@@ -148,6 +179,60 @@ export default function ProductDetailPage() {
 
     return { averageRating: avg, ratingDistribution: distribution };
   }, [reviews]);
+  
+  const handleSpecificationSelect = (specName: string, specValue: string) => {
+    setSelectedSpecifications(prev => ({ ...prev, [specName]: specValue }));
+  };
+  
+  const handleAddToCart = async () => {
+    if (!user || !firestore) {
+      toast({ variant: 'destructive', title: 'Not Logged In', description: 'You must be logged in to add items to your cart.' });
+      return;
+    }
+    if (!selectedVariant || !product || !shopId) {
+      toast({ variant: 'destructive', title: 'Variant Not Selected', description: 'Please select all product options before adding to cart.' });
+      return;
+    }
+
+    try {
+        await runTransaction(firestore, async (transaction) => {
+            const productRef = doc(firestore, `shops/${shopId}/products`, productId);
+            const productDoc = await transaction.get(productRef);
+            if (!productDoc.exists()) throw new Error("Product not found!");
+
+            const productData = productDoc.data() as Product;
+            const currentVariant = productData.variants?.find(v => v.sku === selectedVariant.sku);
+            if (!currentVariant || currentVariant.stockQty < 1) throw new Error("This variant is out of stock.");
+
+            const cartCollectionRef = collection(firestore, `users/${user.uid}/cart`);
+            // Unique ID for cart item based on product and variant SKU
+            const cartItemId = `${productId}-${selectedVariant.sku}`;
+            const cartItemRef = doc(cartCollectionRef, cartItemId);
+            const cartItemDoc = await transaction.get(cartItemRef);
+
+            const quantityInCart = cartItemDoc.exists() ? cartItemDoc.data().quantity : 0;
+            if (currentVariant.stockQty <= quantityInCart) throw new Error("Not enough items in stock.");
+            
+            if (cartItemDoc.exists()) {
+                transaction.update(cartItemRef, { quantity: quantityInCart + 1 });
+            } else {
+                transaction.set(cartItemRef, {
+                    id: cartItemId,
+                    productId: productId,
+                    name: product.name,
+                    price: selectedVariant.price,
+                    quantity: 1,
+                    sku: selectedVariant.sku,
+                    imageUrl: product.images?.[0] || null,
+                    shopId: shopId,
+                });
+            }
+        });
+      toast({ title: 'Added to Cart', description: `${product.name} (${selectedVariant.specifications.map(s => s.value).join('/')}) added.` });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Failed to Add to Cart', description: error.message });
+    }
+  };
 
 
   if (isProductLoading || !product) {
@@ -158,7 +243,6 @@ export default function ProductDetailPage() {
     <div className="container mx-auto p-4 md:p-6 lg:p-8 space-y-8">
       <Card>
         <CardContent className="p-6 grid md:grid-cols-2 gap-8">
-          {/* Left Column: Image Gallery */}
           <div className="flex flex-col gap-4">
               <div className="aspect-square relative w-full rounded-lg overflow-hidden border">
                    {selectedImage ? (
@@ -169,24 +253,8 @@ export default function ProductDetailPage() {
                     </div>
                    )}
               </div>
-          </div>
-          {/* Right Column: Product Details */}
-          <div className="flex flex-col gap-4">
-            <Badge variant="outline" className="w-fit">{product.category}</Badge>
-            <h1 className="text-3xl font-bold">{product.name}</h1>
-             <div className="flex items-center gap-2">
-                <StarRating rating={averageRating} />
-                <span className="text-muted-foreground text-sm">({reviews?.length || 0} reviews)</span>
-            </div>
-            <p className="text-muted-foreground">{product.description}</p>
-             <div className="text-2xl font-bold">
-                PKR {product.variants?.[0]?.price.toLocaleString() ?? 'N/A'}
-            </div>
-            <Button size="lg">Add to Cart</Button>
-
-            {/* Thumbnail Gallery */}
-             {product.images && product.images.length > 1 && (
-                <div className="grid grid-cols-5 gap-2 pt-4">
+              {product.images && product.images.length > 1 && (
+                <div className="grid grid-cols-5 gap-2">
                 {product.images.map((imgUrl, index) => (
                     <div 
                         key={index}
@@ -201,6 +269,49 @@ export default function ProductDetailPage() {
                 ))}
                 </div>
             )}
+          </div>
+          <div className="flex flex-col gap-4">
+            <Badge variant="outline" className="w-fit">{product.category}</Badge>
+            <h1 className="text-3xl font-bold">{product.name}</h1>
+             <div className="flex items-center gap-2">
+                <StarRating rating={averageRating} />
+                <span className="text-muted-foreground text-sm">({reviews?.length || 0} reviews)</span>
+            </div>
+            <p className="text-muted-foreground">{product.description}</p>
+            
+            {product.specificationTypes && product.specificationTypes.length > 0 && (
+                <div className="space-y-4 pt-4">
+                    {product.specificationTypes.map(specType => (
+                        <div key={specType.name}>
+                            <Label className="font-bold">{specType.name}</Label>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                {specType.values.map(value => (
+                                    <Button
+                                        key={value}
+                                        variant={selectedSpecifications[specType.name] === value ? 'default' : 'outline'}
+                                        onClick={() => handleSpecificationSelect(specType.name, value)}
+                                        size="sm"
+                                    >
+                                        {value}
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <Separator />
+
+             <div className="text-2xl font-bold">
+                PKR {selectedVariant ? selectedVariant.price.toLocaleString() : 'N/A'}
+            </div>
+             <p className={`text-sm font-medium ${selectedVariant && selectedVariant.stockQty > 5 ? 'text-green-600' : 'text-red-600'}`}>
+                {selectedVariant ? `${selectedVariant.stockQty} in stock` : "Select options to see stock"}
+            </p>
+            <Button size="lg" onClick={handleAddToCart} disabled={!selectedVariant || selectedVariant.stockQty <= 0}>
+                {selectedVariant && selectedVariant.stockQty <= 0 ? 'Out of Stock' : 'Add to Cart'}
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -236,11 +347,11 @@ export default function ProductDetailPage() {
                                 placeholder="What did you like or dislike?"
                                 value={comment}
                                 onChange={(e) => setComment(e.target.value)}
-                                disabled={isSubmitting || !user}
+                                disabled={isSubmittingReview || !user}
                             />
                         </div>
-                        <Button type="submit" disabled={isSubmitting || !user}>
-                            {isSubmitting ? 'Submitting...' : 'Submit Review'}
+                        <Button type="submit" disabled={isSubmittingReview || !user}>
+                            {isSubmittingReview ? 'Submitting...' : 'Submit Review'}
                         </Button>
                         {!user && <p className="text-xs text-destructive mt-2">You must be logged in to submit a review.</p>}
                     </form>
@@ -271,3 +382,5 @@ export default function ProductDetailPage() {
     </div>
   );
 }
+
+    
