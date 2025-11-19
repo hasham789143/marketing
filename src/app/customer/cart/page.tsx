@@ -17,7 +17,7 @@ import { Home, MinusCircle, Pencil, Phone, PlusCircle, Trash2, User } from 'luci
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
@@ -49,14 +49,23 @@ interface UserData {
   phone?: string;
 }
 
-type PaymentMethod = 'Cash on Delivery' | 'Pay at End of Month';
+interface PaymentMethodSetting {
+    name: string;
+    enabled: boolean;
+}
+
+interface ShopData {
+    enabledPaymentMethods?: PaymentMethodSetting[];
+}
+
+type PaymentMethod = 'Cash on Delivery' | 'Pay at End of Month' | 'Online Transfer';
 
 export default function CartPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
   const router = useRouter();
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash on Delivery');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const userDocRef = useMemoFirebase(() => {
@@ -65,10 +74,6 @@ export default function CartPage() {
   }, [user, firestore]);
   const { data: userData } = useDoc<UserData>(userDocRef);
   
-  const activeShop = useMemo(() => {
-    return userData?.shopConnections?.find(c => c.status === 'active');
-  }, [userData]);
-  
   const cartRef = useMemoFirebase(() => {
     if (!user) return null;
     return collection(firestore, `users/${user.uid}/cart`);
@@ -76,22 +81,43 @@ export default function CartPage() {
 
   const { data: cartItems, isLoading } = useCollection<CartItem>(cartRef);
 
-  // For simplicity, we assume a user can only order from one shop at a time.
-  // The cart should ideally only contain items from one shop.
   const shopId = useMemo(() => {
       return cartItems?.[0]?.shopId;
   }, [cartItems]);
+  
+  const shopDocRef = useMemoFirebase(() => {
+    if (!shopId) return null;
+    return doc(firestore, 'shops', shopId);
+  }, [shopId, firestore]);
+
+  const { data: shopData } = useDoc<ShopData>(shopDocRef);
+
+  const enabledPaymentMethods = useMemo(() => {
+    return shopData?.enabledPaymentMethods?.filter(method => method.enabled) || [];
+  }, [shopData]);
+
+  useEffect(() => {
+    // Set the default payment method to the first one available
+    if (enabledPaymentMethods.length > 0 && !paymentMethod) {
+      setPaymentMethod(enabledPaymentMethods[0].name as PaymentMethod);
+    }
+    // If the currently selected method is no longer enabled, reset it
+    if (paymentMethod && !enabledPaymentMethods.some(m => m.name === paymentMethod)) {
+       setPaymentMethod(enabledPaymentMethods.length > 0 ? enabledPaymentMethods[0].name as PaymentMethod : null);
+    }
+  }, [enabledPaymentMethods, paymentMethod]);
+
 
   const subtotal = cartItems?.reduce((acc, item) => acc + item.price * item.quantity, 0) ?? 0;
   const deliveryCharge = 150; 
   const total = subtotal + deliveryCharge;
 
   const handlePlaceOrder = async () => {
-    if (!user || !cartItems || cartItems.length === 0 || !shopId) {
+    if (!user || !cartItems || cartItems.length === 0 || !shopId || !paymentMethod) {
       toast({
         variant: 'destructive',
         title: 'Cannot Place Order',
-        description: 'Your cart is empty or shop is invalid.',
+        description: 'Your cart is empty, shop is invalid, or no payment method is selected.',
       });
       return;
     }
@@ -363,21 +389,23 @@ export default function CartPage() {
                      <Separator />
                      <div className="space-y-2">
                         <h3 className="text-sm font-medium">Payment Method</h3>
-                        <RadioGroup value={paymentMethod} onValueChange={(value: PaymentMethod) => setPaymentMethod(value)} className="space-y-2">
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="Cash on Delivery" id="cod" />
-                                <Label htmlFor="cod">Cash on Delivery (COD)</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="Pay at End of Month" id="monthly" />
-                                <Label htmlFor="monthly">Pay at End of Month</Label>
-                            </div>
-                        </RadioGroup>
+                        {enabledPaymentMethods.length > 0 ? (
+                            <RadioGroup value={paymentMethod || ''} onValueChange={(value: PaymentMethod) => setPaymentMethod(value)} className="space-y-2">
+                                {enabledPaymentMethods.map((method) => (
+                                    <div key={method.name} className="flex items-center space-x-2">
+                                        <RadioGroupItem value={method.name} id={method.name.replace(/\s+/g, '-')} />
+                                        <Label htmlFor={method.name.replace(/\s+/g, '-')}>{method.name}</Label>
+                                    </div>
+                                ))}
+                            </RadioGroup>
+                        ) : (
+                            <p className="text-sm text-muted-foreground">No payment methods are available for this shop.</p>
+                        )}
                     </div>
                     <Button
                         className="w-full"
                         onClick={handlePlaceOrder}
-                        disabled={isLoading || isPlacingOrder || !cartItems || cartItems.length === 0 || !userData?.deliveryAddress || !userData?.phone}
+                        disabled={isLoading || isPlacingOrder || !cartItems || cartItems.length === 0 || !userData?.deliveryAddress || !userData?.phone || !paymentMethod}
                     >
                         {isPlacingOrder ? "Placing Order..." : "Place Order"}
                     </Button>
@@ -389,3 +417,5 @@ export default function CartPage() {
     </div>
   );
 }
+
+    

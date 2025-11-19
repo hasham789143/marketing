@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -12,9 +13,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 
 interface UserData {
   role: string;
@@ -22,10 +25,16 @@ interface UserData {
   email: string;
 }
 
+interface PaymentMethodSetting {
+    name: string;
+    enabled: boolean;
+}
+
 interface ShopData {
   shopName: string;
   deliveryChargeDefault: number;
   currency: string;
+  enabledPaymentMethods?: PaymentMethodSetting[];
 }
 
 export default function SettingsPage() {
@@ -36,6 +45,7 @@ export default function SettingsPage() {
   const [shopName, setShopName] = useState('');
   const [deliveryCharge, setDeliveryCharge] = useState<number | string>('');
   const [currency, setCurrency] = useState('');
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodSetting[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   const userDocRef = useMemoFirebase(() => {
@@ -59,8 +69,30 @@ export default function SettingsPage() {
       setShopName(shopData.shopName || '');
       setDeliveryCharge(shopData.deliveryChargeDefault || '');
       setCurrency(shopData.currency || '');
+      
+      const existingMethods = shopData.enabledPaymentMethods || [];
+      const allMethods: PaymentMethodSetting[] = [
+        { name: 'Cash on Delivery', enabled: false },
+        { name: 'Pay at End of Month', enabled: false },
+        { name: 'Online Transfer', enabled: false },
+      ];
+
+      const mergedMethods = allMethods.map(defaultMethod => {
+        const found = existingMethods.find(m => m.name === defaultMethod.name);
+        return found ? found : defaultMethod;
+      });
+
+      setPaymentMethods(mergedMethods);
     }
   }, [shopData]);
+  
+  const handlePaymentMethodToggle = (methodName: string, enabled: boolean) => {
+    setPaymentMethods(currentMethods => 
+      currentMethods.map(method => 
+        method.name === methodName ? { ...method, enabled } : method
+      )
+    );
+  };
 
   const handleSaveChanges = async () => {
     if (!shopDocRef) {
@@ -78,6 +110,7 @@ export default function SettingsPage() {
         shopName: shopName,
         deliveryChargeDefault: Number(deliveryCharge),
         currency: currency,
+        enabledPaymentMethods: paymentMethods,
       });
       toast({ title: 'Settings Saved', description: 'Your shop information has been updated.' });
     } catch (error: any) {
@@ -142,6 +175,37 @@ export default function SettingsPage() {
             </CardFooter>
         )}
       </Card>
+      
+      {isOwner && (
+        <Card className="mt-8">
+            <CardHeader>
+                <CardTitle>Payment Methods</CardTitle>
+                <CardDescription>Configure which payment methods are available for your customers.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {paymentMethods.map(method => (
+                    <div key={method.name} className="flex items-center justify-between p-3 border rounded-lg">
+                        <Label htmlFor={`payment-${method.name.replace(/\s+/g, '-')}`} className="font-medium">
+                            {method.name}
+                        </Label>
+                        <Switch
+                            id={`payment-${method.name.replace(/\s+/g, '-')}`}
+                            checked={method.enabled}
+                            onCheckedChange={(checked) => handlePaymentMethodToggle(method.name, checked)}
+                            disabled={isSaving}
+                        />
+                    </div>
+                ))}
+            </CardContent>
+             <CardFooter>
+                <Button onClick={handleSaveChanges} disabled={isLoading || isSaving}>
+                    {isSaving ? 'Saving...' : 'Save Payment Settings'}
+                </Button>
+            </CardFooter>
+        </Card>
+      )}
     </div>
   );
 }
+
+    
