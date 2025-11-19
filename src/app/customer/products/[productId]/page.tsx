@@ -17,7 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { StarRating } from '@/components/ui/star-rating';
 import { ReviewCard } from '@/components/review-card';
@@ -28,6 +28,8 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel';
+import { Progress } from '@/components/ui/progress';
+import { Star } from 'lucide-react';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -57,19 +59,15 @@ export default function ProductDetailPage() {
   const { data: product, isLoading: isProductLoading } = useDoc<Product>(productDocRef);
   const { data: reviews, isLoading: areReviewsLoading } = useCollection<Review>(reviewsRef);
   
-  // This is a workaround to find the shopId.
-  // In a real application, you'd probably have the shopId in the route.
   useEffect(() => {
     async function getShopId() {
         if (!firestore || !productId) return;
         
-        // This is not efficient, but it's a temporary solution for the demo.
-        // A better approach would be to have a direct way to look up the shop for a product.
         const allShopsQuery = collection(firestore, 'shops');
         const querySnapshot = await getDocs(allShopsQuery);
         for(const shopDoc of querySnapshot.docs) {
-            const productDoc = doc(firestore, `shops/${shopDoc.id}/products`, productId);
-            const productSnapshot = await getDoc(productDoc);
+            const productDocRef = doc(firestore, `shops/${shopDoc.id}/products`, productId);
+            const productSnapshot = await getDoc(productDocRef);
             if (productSnapshot.exists()) {
                 setShopId(shopDoc.id);
                 return;
@@ -113,9 +111,35 @@ export default function ProductDetailPage() {
     }
   };
   
-  const averageRating = reviews && reviews.length > 0
-    ? reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length
-    : 0;
+  const { averageRating, ratingDistribution } = useMemo(() => {
+    if (!reviews || reviews.length === 0) {
+      return {
+        averageRating: 0,
+        ratingDistribution: [
+            { rating: 5, count: 0, percentage: 0 },
+            { rating: 4, count: 0, percentage: 0 },
+            { rating: 3, count: 0, percentage: 0 },
+            { rating: 2, count: 0, percentage: 0 },
+            { rating: 1, count: 0, percentage: 0 },
+        ],
+      };
+    }
+
+    const totalReviews = reviews.length;
+    const avg = reviews.reduce((acc, review) => acc + review.rating, 0) / totalReviews;
+    
+    const distribution = [5, 4, 3, 2, 1].map(star => {
+        const count = reviews.filter(r => r.rating === star).length;
+        return {
+            rating: star,
+            count: count,
+            percentage: totalReviews > 0 ? (count / totalReviews) * 100 : 0
+        };
+    });
+
+    return { averageRating: avg, ratingDistribution: distribution };
+  }, [reviews]);
+
 
   if (isProductLoading || !product) {
     return <p>Loading product...</p>;
@@ -174,7 +198,7 @@ export default function ProductDetailPage() {
              </div>
         </div>
 
-        <div>
+        <div className="space-y-6">
             <Card>
                 <CardHeader>
                     <CardTitle>Write a Review</CardTitle>
@@ -203,8 +227,30 @@ export default function ProductDetailPage() {
                     </form>
                 </CardContent>
             </Card>
+
+            {reviews && reviews.length > 0 && (
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Rating Distribution</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {ratingDistribution.map(item => (
+                            <div key={item.rating} className="flex items-center gap-2 text-sm">
+                                <div className="flex items-center gap-1 w-16">
+                                    <span>{item.rating}</span>
+                                    <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                                </div>
+                                <Progress value={item.percentage} className="w-full h-2" />
+                                <span className="w-10 text-right text-muted-foreground">{item.count}</span>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
+            )}
         </div>
       </div>
     </div>
   );
 }
+
+    
