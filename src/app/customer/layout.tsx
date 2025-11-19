@@ -64,7 +64,7 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
         </Sidebar>
         <SidebarInset className="flex flex-col">
           <Header />
-          <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
+          <main className="flex-1 w-full p-4 md:p-6 lg:p-8">{children}</main>
         </SidebarInset>
       </div>
     </SidebarProvider>
