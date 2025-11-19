@@ -93,24 +93,24 @@ function ShopDashboardCard({ shopId }: { shopId: string }) {
                     data-ai-hint="retail store"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                <div className="absolute bottom-0 left-0 p-6">
-                    <h1 className="text-3xl font-bold text-white tracking-tight">{shopData.shopName}</h1>
-                    <p className="text-lg text-white/90">Your go-to place for quality products.</p>
+                <div className="absolute bottom-0 left-0 p-4 md:p-6">
+                    <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">{shopData.shopName}</h1>
+                    <p className="text-base md:text-lg text-white/90">Your go-to place for quality products.</p>
                 </div>
             </div>
-            <CardContent className="p-6">
-                    <div className="grid md:grid-cols-3 gap-6 text-center">
+            <CardContent className="p-4 md:p-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                     <div className="flex flex-col gap-1 p-4 rounded-lg bg-secondary">
                         <span className="text-sm text-muted-foreground">Total Bill</span>
-                        <span className="text-2xl font-bold">PKR {totalBill.toLocaleString()}</span>
+                        <span className="text-xl md:text-2xl font-bold">PKR {totalBill.toLocaleString()}</span>
                     </div>
                         <div className="flex flex-col gap-1 p-4 rounded-lg bg-green-100 dark:bg-green-900/50">
                         <span className="text-sm text-green-700 dark:text-green-400">Total Paid</span>
-                        <span className="text-2xl font-bold text-green-800 dark:text-green-300">PKR {totalPaid.toLocaleString()}</span>
+                        <span className="text-xl md:text-2xl font-bold text-green-800 dark:text-green-300">PKR {totalPaid.toLocaleString()}</span>
                     </div>
                     <div className="flex flex-col gap-1 p-4 rounded-lg bg-red-100 dark:bg-red-900/50">
                         <span className="text-sm text-red-700 dark:text-red-400">Total Unpaid</span>
-                        <span className="text-2xl font-bold text-red-800 dark:text-red-300">PKR {totalUnpaid.toLocaleString()}</span>
+                        <span className="text-xl md:text-2xl font-bold text-red-800 dark:text-red-300">PKR {totalUnpaid.toLocaleString()}</span>
                     </div>
                 </div>
                 <Separator className="my-6" />
@@ -184,3 +184,5 @@ export default function CustomerDashboardPage() {
     </div>
   );
 }
+
+    

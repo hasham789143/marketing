@@ -14,7 +14,7 @@ import {
   ChartTooltipContent,
   ChartConfig
 } from '@/components/ui/chart';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { DollarSign, ShoppingCart, Users, Activity, Store } from 'lucide-react';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
@@ -89,14 +89,14 @@ export default function DashboardPage() {
     if (role === 'admin') return [];
     const monthlyRevenue: { [key: string]: number } = {};
     orders?.forEach(order => {
-      const month = new Date(order.date).toLocaleString('default', { month: 'long' });
+      const month = new Date(order.date).toLocaleString('default', { month: 'short' });
       if (!monthlyRevenue[month]) {
         monthlyRevenue[month] = 0;
       }
       monthlyRevenue[month] += order.total;
     });
 
-    const monthOrder = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const monthOrder = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     
     return monthOrder.map(month => ({
       month,
@@ -113,7 +113,7 @@ export default function DashboardPage() {
     return (
       <div className="flex flex-col gap-8">
         <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-        <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Shops</CardTitle>
@@ -216,27 +216,28 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           <ChartContainer config={chartConfig} className="h-[300px] w-full">
-            <BarChart data={chartData} accessibilityLayer>
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="month"
-                tickLine={false}
-                tickMargin={10}
-                axisLine={false}
-                tickFormatter={(value) => value.slice(0, 3)}
-              />
-              <YAxis
-                tickFormatter={(value) => `PKR ${Number(value) / 1000}k`}
-                tickLine={false}
-                axisLine={false}
-                width={80}
-              />
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent indicator="dot" />}
-              />
-              <Bar dataKey="revenue" fill="var(--color-revenue)" radius={4} />
-            </BarChart>
+            <ResponsiveContainer>
+              <BarChart data={chartData} accessibilityLayer>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={false}
+                />
+                <YAxis
+                  tickFormatter={(value) => `PKR ${Number(value) / 1000}k`}
+                  tickLine={false}
+                  axisLine={false}
+                  width={80}
+                />
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent indicator="dot" />}
+                />
+                <Bar dataKey="revenue" fill="var(--color-revenue)" radius={4} />
+              </BarChart>
+            </ResponsiveContainer>
           </ChartContainer>
         </CardContent>
       </Card>

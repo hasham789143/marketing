@@ -73,7 +73,7 @@ export default function ShopsPage() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <CardTitle>Shops</CardTitle>
           <CardDescription>
@@ -88,67 +88,74 @@ export default function ShopsPage() {
         </Button>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Shop Name</TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead>Shop ID</TableHead>
-              <TableHead>Owner ID</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Created At</TableHead>
-              <TableHead>
-                <span className="sr-only">Actions</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Loading shops...</TableCell></TableRow>}
-            {!isLoading && shops?.map((shop) => (
-              <TableRow key={shop.id}>
-                <TableCell className="font-medium">{shop.shopName}</TableCell>
-                <TableCell>{shop.phone}</TableCell>
-                <TableCell>{shop.id}</TableCell>
-                <TableCell>{shop.ownerUserId}</TableCell>
-                <TableCell>
-                  <Badge variant={getStatusVariant(shop.status)}>{shop.status}</Badge>
-                </TableCell>
-                <TableCell>{shop.createdAt ? format(shop.createdAt.toDate(), 'PP') : 'N/A'}</TableCell>
-                <TableCell>
-                    <div className="flex items-center justify-end gap-2">
-                         <Button variant="outline" size="sm" onClick={() => handleViewProducts(shop.id)}>
-                            <Eye className="mr-2 h-3 w-3" /> Products
-                        </Button>
-                         <Button variant="outline" size="sm" onClick={() => handleViewOrders(shop.id)}>
-                             <Eye className="mr-2 h-3 w-3" /> Orders
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleViewUsers(shop.id)}>
-                             <Users className="mr-2 h-3 w-3" /> Users
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              aria-haspopup="true"
-                              size="icon"
-                              variant="ghost"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Toggle menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>View Details</DropdownMenuItem>
-                            <DropdownMenuItem>Manage Staff</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">Block Shop</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                </TableCell>
+        <div className="relative w-full overflow-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Shop Name</TableHead>
+                <TableHead className="hidden sm:table-cell">Contact</TableHead>
+                <TableHead className="hidden lg:table-cell">Shop ID</TableHead>
+                <TableHead className="hidden lg:table-cell">Owner ID</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="hidden md:table-cell">Created At</TableHead>
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Loading shops...</TableCell></TableRow>}
+              {!isLoading && shops?.map((shop) => (
+                <TableRow key={shop.id}>
+                  <TableCell className="font-medium">{shop.shopName}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{shop.phone}</TableCell>
+                  <TableCell className="hidden lg:table-cell truncate max-w-24">{shop.id}</TableCell>
+                  <TableCell className="hidden lg:table-cell truncate max-w-24">{shop.ownerUserId}</TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusVariant(shop.status)}>{shop.status}</Badge>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">{shop.createdAt ? format(shop.createdAt.toDate(), 'PP') : 'N/A'}</TableCell>
+                  <TableCell>
+                      <div className="flex items-center justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleViewProducts(shop.id)} className="hidden sm:flex">
+                              <Eye className="mr-2 h-3 w-3" /> Products
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handleViewOrders(shop.id)} className="hidden sm:flex">
+                              <Eye className="mr-2 h-3 w-3" /> Orders
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handleViewUsers(shop.id)} className="hidden sm:flex">
+                              <Users className="mr-2 h-3 w-3" /> Users
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                aria-haspopup="true"
+                                size="icon"
+                                variant="ghost"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Toggle menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem className="sm:hidden" onClick={() => handleViewProducts(shop.id)}>View Products</DropdownMenuItem>
+                              <DropdownMenuItem className="sm:hidden" onClick={() => handleViewOrders(shop.id)}>View Orders</DropdownMenuItem>
+                              <DropdownMenuItem className="sm:hidden" onClick={() => handleViewUsers(shop.id)}>View Users</DropdownMenuItem>
+                              <DropdownMenuItem>View Details</DropdownMenuItem>
+                              <DropdownMenuItem>Manage Staff</DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive">Block Shop</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                      </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   );
 }
+
+    
