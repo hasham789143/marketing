@@ -8,6 +8,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarMenuSkeleton,
+  SidebarMenuBadge,
 } from '@/components/ui/sidebar';
 import {
   LayoutDashboard,
@@ -23,8 +24,22 @@ import {
   List,
   BellRing,
 } from 'lucide-react';
-import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { collection, doc, query, where } from 'firebase/firestore';
+import { useMemo } from 'react';
+
+
+interface ShopConnection {
+    shopId: string;
+    shopName: string;
+    status: 'pending' | 'active';
+}
+interface ConnectionRequest {
+    id: string; // This will be the user's ID
+    name: string;
+    email: string;
+    shopConnections: ShopConnection[];
+}
 
 
 const adminNavItems = [
@@ -43,6 +58,7 @@ const shopNavItems = [
 ];
 
 const customerNavItems = [
+    { href: '/customer', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/customer/products', label: 'Browse Products', icon: ShoppingBag },
     { href: '/customer/cart', label: 'My Cart', icon: ShoppingCart },
     { href: '/customer/orders', label: 'My Bills', icon: Package },
@@ -64,7 +80,25 @@ export function Nav() {
     return doc(firestore, 'users', user.uid);
   }, [user, firestore]);
 
-  const { data: userData, isLoading: isUserDataLoading } = useDoc<{ role: string }>(userDocRef);
+  const { data: userData, isLoading: isUserDataLoading } = useDoc<{ role: string, shopId?: string }>(userDocRef);
+
+  const requestsRef = useMemoFirebase(() => {
+    if (!userData?.shopId || userData.role !== 'owner') return null;
+    return query(
+        collection(firestore, 'users'), 
+        where('shopConnectionIds', 'array-contains', userData.shopId)
+    );
+  }, [firestore, userData]);
+
+  const { data: usersWithRequests } = useCollection<ConnectionRequest>(requestsRef);
+
+  const pendingRequestsCount = useMemo(() => {
+    if (!usersWithRequests || !userData?.shopId) return 0;
+    return usersWithRequests
+      .map(u => u.shopConnections.find(sc => sc.shopId === userData.shopId && sc.status === 'pending'))
+      .filter(Boolean).length;
+  }, [usersWithRequests, userData?.shopId]);
+
 
   const isLoading = isUserLoading || isUserDataLoading;
 
@@ -132,6 +166,9 @@ export function Nav() {
                 <span>{item.label}</span>
             </Link>
           </SidebarMenuButton>
+          {item.href === '/dashboard/requests' && pendingRequestsCount > 0 && (
+             <SidebarMenuBadge>{pendingRequestsCount}</SidebarMenuBadge>
+          )}
         </SidebarMenuItem>
       ))}
     </SidebarMenu>

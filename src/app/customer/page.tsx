@@ -91,6 +91,14 @@ export default function CustomerDashboardPage() {
     );
   }
 
+  if (!user) {
+     return (
+        <div className="flex justify-center items-center h-64">
+            <p>Please <Link href="/login" className="underline">log in</Link> to view your dashboard.</p>
+        </div>
+    );
+  }
+
   return (
     <div className="grid gap-8">
         {shopData && (

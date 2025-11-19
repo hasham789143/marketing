@@ -123,7 +123,7 @@ export default function CustomerOrdersPage() {
               orders?.map((order) => (
                 <TableRow key={order.id} onClick={() => handleOrderClick(order.id)} className="cursor-pointer">
                   <TableCell className="font-medium">{order.id.substring(0, 8)}...</TableCell>
-                  <TableCell>{format(new Date(order.date), 'PP')}</TableCell>
+                  <TableCell>{order.date ? format(new Date(order.date), 'PP') : 'N/A'}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(order.status)}>{order.status}</Badge>
                   </TableCell>
