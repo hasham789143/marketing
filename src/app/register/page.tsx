@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -23,11 +22,11 @@ import {
 } from '@/components/ui/card';
 import { useAuth, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { arrayUnion, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CheckCircle, Info, Loader2 } from 'lucide-react';
@@ -48,8 +47,10 @@ export default function RegisterPage() {
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
+  
+  // Use state to manage the input value separately from the form state
   const [shopIdInput, setShopIdInput] = useState('');
-  const [shopName, setShopName] = useState<string | null>(null);
+  const [verifiedShop, setVerifiedShop] = useState<{ id: string; name: string } | null>(null);
   const [isCheckingShop, setIsCheckingShop] = useState(false);
   const [shopError, setShopError] = useState<string | null>(null);
 
@@ -64,41 +65,42 @@ export default function RegisterPage() {
     },
   });
 
-  const debouncedCheckShopId = useDebouncedCallback(async (shopId: string) => {
-    if (shopId) {
+  const debouncedCheckShopId = useDebouncedCallback(async (id: string) => {
+    if (id) {
         setIsCheckingShop(true);
-        setShopName(null);
+        setVerifiedShop(null);
         setShopError(null);
         try {
-            const shopDocRef = doc(firestore, 'shops', shopId);
+            const shopDocRef = doc(firestore, 'shops', id);
             const shopDoc = await getDoc(shopDocRef);
             if (shopDoc.exists()) {
                 const shopData = shopDoc.data() as ShopData;
-                setShopName(shopData.shopName);
+                setVerifiedShop({ id: shopDoc.id, name: shopData.shopName });
+                // Set the value in the form state once verified
+                form.setValue('shopId', id);
             } else {
                 setShopError('No shop found with this ID.');
+                form.setValue('shopId', ''); // Clear form value if invalid
             }
         } catch (error) {
             setShopError('Failed to verify Shop ID.');
+            form.setValue('shopId', ''); // Clear form value on error
         } finally {
             setIsCheckingShop(false);
         }
     } else {
-        setShopName(null);
+        setVerifiedShop(null);
         setShopError(null);
+        form.setValue('shopId', '');
     }
   }, 500);
 
-  useEffect(() => {
-    debouncedCheckShopId(shopIdInput);
-  }, [shopIdInput, debouncedCheckShopId]);
-
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (values.shopId && !shopName) {
+    if (shopIdInput && !verifiedShop) {
         toast({
             variant: "destructive",
             title: "Invalid Shop ID",
-            description: "Please enter a valid Shop ID or leave it blank.",
+            description: "Please use a valid Shop ID or leave the field blank.",
         });
         return;
     }
@@ -109,17 +111,33 @@ export default function RegisterPage() {
       
       const role = values.email.endsWith('@admin.com') ? 'admin' : 'customer';
 
-      // Add user to firestore
-      await setDoc(doc(firestore, "users", user.uid), {
+      const newUserDocData = {
         userId: user.uid,
         name: values.name,
         email: values.email,
-        phone: '', // Initially empty
+        phone: '', 
         role: role, 
-        shopId: values.shopId || null,
         createdAt: serverTimestamp(),
         imageUrl: '',
-      });
+        shopConnections: [],
+        shopConnectionIds: [],
+      };
+
+      const userDocRef = doc(firestore, "users", user.uid);
+      await setDoc(userDocRef, newUserDocData);
+      
+      // If a valid shop was entered, create the pending connection request
+      if (verifiedShop) {
+        const newConnection = {
+          shopId: verifiedShop.id,
+          shopName: verifiedShop.name,
+          status: 'pending',
+        };
+        await setDoc(userDocRef, {
+            shopConnections: arrayUnion(newConnection),
+            shopConnectionIds: arrayUnion(verifiedShop.id)
+        }, { merge: true });
+      }
       
       toast({
         title: "Account Created",
@@ -185,26 +203,21 @@ export default function RegisterPage() {
                   </FormItem>
                 )}
               />
-               <FormField
-                control={form.control}
-                name="shopId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Shop ID (Optional)</FormLabel>
-                    <FormControl>
-                      <Input 
+              <FormItem>
+                  <FormLabel>Shop ID (Optional)</FormLabel>
+                  <FormControl>
+                    <Input 
                         placeholder="Enter the Shop ID to connect" 
-                        {...field}
+                        value={shopIdInput}
                         onChange={(e) => {
-                            field.onChange(e);
                             setShopIdInput(e.target.value);
+                            debouncedCheckShopId(e.target.value);
                         }}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                    />
+                  </FormControl>
+                  <FormMessage />
+              </FormItem>
+              
               {isCheckingShop && (
                 <div className="flex items-center text-sm text-muted-foreground">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying Shop ID...
@@ -217,14 +230,14 @@ export default function RegisterPage() {
                     <AlertDescription>{shopError}</AlertDescription>
                 </Alert>
               )}
-              {shopName && (
+              {verifiedShop && (
                 <Alert>
                     <CheckCircle className="h-4 w-4" />
                     <AlertTitle>Shop Found!</AlertTitle>
-                    <AlertDescription>You are connecting to: <strong>{shopName}</strong></AlertDescription>
+                    <AlertDescription>Request to join <strong>{verifiedShop.name}</strong> will be sent upon registration.</AlertDescription>
                 </Alert>
               )}
-              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || (shopIdInput !== '' && !shopName)}>
+              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || (shopIdInput !== '' && !verifiedShop)}>
                 {form.formState.isSubmitting ? 'Creating Account...' : 'Create Account'}
               </Button>
             </form>

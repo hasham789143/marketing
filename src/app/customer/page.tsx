@@ -13,9 +13,16 @@ import { useMemo } from 'react';
 import { Order } from '@/lib/data';
 import { Separator } from '@/components/ui/separator';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import Link from 'next/link';
+
+interface ShopConnection {
+  shopId: string;
+  shopName: string;
+  status: 'pending' | 'active';
+}
 
 interface UserData {
-  shopId?: string;
+  shopConnections?: ShopConnection[];
   phone?: string;
 }
 
@@ -35,7 +42,13 @@ export default function CustomerDashboardPage() {
   }, [firestore, user]);
 
   const { data: userData, isLoading: isUserDataLoading } = useDoc<UserData>(userDocRef);
-  const shopId = userData?.shopId;
+  
+  // Find the active shop connection
+  const activeShopConnection = useMemo(() => {
+    return userData?.shopConnections?.find(c => c.status === 'active');
+  }, [userData]);
+
+  const shopId = activeShopConnection?.shopId;
 
   const shopDocRef = useMemoFirebase(() => {
     if (!shopId) return null;
@@ -129,10 +142,11 @@ export default function CustomerDashboardPage() {
              <Card>
                 <CardHeader>
                     <CardTitle>Welcome!</CardTitle>
-                    <CardDescription>It looks like you're not associated with a shop yet.</CardDescription>
+                    <CardDescription>It looks like you don't have an active shop connection yet.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <p>You can browse products and place orders once you are linked to a shop.</p>
+                    <p>You can request to join a shop from your <Link href="/customer/profile" className="underline font-medium">profile page</Link>.</p>
+                    <p className="text-sm text-muted-foreground mt-2">If you have a pending request, please wait for the shop owner to approve it.</p>
                 </CardContent>
              </Card>
         )}

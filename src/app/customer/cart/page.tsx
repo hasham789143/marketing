@@ -24,7 +24,7 @@ import { Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
@@ -37,8 +37,14 @@ interface CartItem {
   imageUrl?: string;
 }
 
+interface ShopConnection {
+  shopId: string;
+  shopName: string;
+  status: 'pending' | 'active';
+}
+
 interface UserData {
-  shopId?: string;
+  shopConnections?: ShopConnection[];
   name?: string;
   deliveryAddress?: string;
 }
@@ -57,6 +63,12 @@ export default function CartPage() {
     return doc(firestore, 'users', user.uid);
   }, [user, firestore]);
   const { data: userData } = useDoc<UserData>(userDocRef);
+  
+  const activeShop = useMemo(() => {
+    return userData?.shopConnections?.find(c => c.status === 'active');
+  }, [userData]);
+  
+  const shopId = activeShop?.shopId;
 
   const cartRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -70,24 +82,23 @@ export default function CartPage() {
   const total = subtotal + deliveryCharge;
 
   const handlePlaceOrder = async () => {
-    if (!user || !cartItems || cartItems.length === 0 || !userData?.shopId) {
+    if (!user || !cartItems || cartItems.length === 0 || !shopId) {
       toast({
         variant: 'destructive',
         title: 'Cannot Place Order',
-        description: 'Your cart is empty or shop information is missing.',
+        description: 'Your cart is empty or you do not have an active shop connection.',
       });
       return;
     }
 
     try {
-      const shopId = userData.shopId;
       const orderId = `ORD-${uuidv4().toUpperCase()}`;
 
       const orderPayload = {
         orderId: orderId,
         shopId: shopId,
         customerId: user.uid,
-        customer: userData.name || 'N/A',
+        customer: userData?.name || 'N/A',
         items: cartItems.map(item => ({
           productId: item.id,
           name: item.name,
@@ -103,7 +114,7 @@ export default function CartPage() {
         orderStatus: 'Pending',
         paymentStatus: 'Unpaid',
         paymentMethod: paymentMethod,
-        deliveryAddress: userData.deliveryAddress || 'Default Address', // Placeholder
+        deliveryAddress: userData?.deliveryAddress || 'Default Address', // Placeholder
         date: new Date().toISOString(),
         updatedAt: serverTimestamp(),
         createdAt: serverTimestamp(),

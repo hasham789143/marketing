@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -23,6 +22,7 @@ import { useParams } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
+import { useMemo } from 'react';
 
 interface OrderItem {
   productId: string;
@@ -46,8 +46,14 @@ interface OrderDetails {
   deliveryAddress: string;
 }
 
+interface ShopConnection {
+    shopId: string;
+    shopName: string;
+    status: 'pending' | 'active';
+}
+
 interface UserData {
-    shopId?: string;
+    shopConnections?: ShopConnection[];
 }
 
 export default function OrderDetailsPage() {
@@ -62,12 +68,16 @@ export default function OrderDetailsPage() {
   }, [user, firestore]);
   const { data: userData } = useDoc<UserData>(userDocRef);
 
+  const activeShop = useMemo(() => {
+    return userData?.shopConnections?.find(c => c.status === 'active');
+  }, [userData]);
+
   const orderDocRef = useMemoFirebase(() => {
     // To view an order, we need both the shopId and the orderId.
-    // The user's shopId tells us which shop they belong to.
-    if (!orderId || !userData?.shopId) return null;
-    return doc(firestore, `shops/${userData.shopId}/orders`, orderId);
-  }, [firestore, orderId, userData]);
+    // The user's active shop tells us which shop's orders to look in.
+    if (!orderId || !activeShop?.shopId) return null;
+    return doc(firestore, `shops/${activeShop.shopId}/orders`, orderId);
+  }, [firestore, orderId, activeShop]);
 
   const { data: order, isLoading } = useDoc<OrderDetails>(orderDocRef);
 

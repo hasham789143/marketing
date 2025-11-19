@@ -21,11 +21,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Label } from '@/components/ui/label';
 
+interface ShopConnection {
+  shopId: string;
+  shopName: string;
+  status: 'pending' | 'active';
+}
+
 interface UserData {
-  shopId?: string;
+  shopConnections?: ShopConnection[];
 }
 
 interface Category {
@@ -45,7 +51,12 @@ export default function CustomerProductsPage() {
   }, [user, firestore]);
 
   const { data: userData } = useDoc<UserData>(userDocRef);
-  const shopId = userData?.shopId;
+
+  const activeShop = useMemo(() => {
+    return userData?.shopConnections?.find(c => c.status === 'active');
+  }, [userData]);
+  
+  const shopId = activeShop?.shopId;
 
   const categoriesRef = useMemoFirebase(() => {
     if (!shopId) return null;
@@ -113,13 +124,14 @@ export default function CustomerProductsPage() {
       <CardHeader>
         <CardTitle>Browse Products</CardTitle>
         <CardDescription>
-          Here are the products available from your associated shop.
+          {shopId ? "Here are the products available from your associated shop." : "You must have an active shop connection to browse products."}
         </CardDescription>
         <div className="pt-4">
             <Label htmlFor="category-filter" className="text-sm font-medium">Filter by Category</Label>
             <Select
                 value={selectedCategory}
                 onValueChange={setSelectedCategory}
+                disabled={!shopId}
             >
                 <SelectTrigger id="category-filter" className="w-[280px] mt-1">
                     <SelectValue placeholder="Select a category" />
@@ -137,7 +149,12 @@ export default function CustomerProductsPage() {
       </CardHeader>
       <CardContent>
         {isLoading && <p>Loading products...</p>}
-        {!isLoading && !products?.length && (
+        {!isLoading && !shopId && (
+            <p className="text-center text-muted-foreground py-8">
+                Please connect to a shop from your profile to see products.
+            </p>
+        )}
+        {!isLoading && shopId && !products?.length && (
           <p className="text-center text-muted-foreground py-8">
             No products found in this category.
           </p>

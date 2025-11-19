@@ -21,9 +21,15 @@ import { collection, doc, query, where } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
+import { useMemo } from 'react';
 
+interface ShopConnection {
+  shopId: string;
+  shopName: string;
+  status: 'pending' | 'active';
+}
 interface UserData {
-  shopId?: string;
+  shopConnections?: ShopConnection[];
 }
 
 export default function CustomerOrdersPage() {
@@ -37,14 +43,18 @@ export default function CustomerOrdersPage() {
   }, [user, firestore]);
   const { data: userData } = useDoc<UserData>(userDocRef);
 
+  const activeShop = useMemo(() => {
+    return userData?.shopConnections?.find(c => c.status === 'active');
+  }, [userData]);
+
   const ordersRef = useMemoFirebase(() => {
-    if (!user || !userData?.shopId) return null;
+    if (!user || !activeShop?.shopId) return null;
     // Query orders from the specific shop the user is associated with.
     return query(
-      collection(firestore, `shops/${userData.shopId}/orders`),
+      collection(firestore, `shops/${activeShop.shopId}/orders`),
       where('customerId', '==', user.uid)
     );
-  }, [firestore, user, userData]);
+  }, [firestore, user, activeShop]);
 
   const { data: orders, isLoading } = useCollection<Order>(ordersRef);
 
@@ -95,14 +105,21 @@ export default function CustomerOrdersPage() {
                 </TableCell>
               </TableRow>
             )}
-            {!isLoading && !orders?.length && (
+             {!isLoading && !activeShop && (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center">
+                  You do not have an active shop connection. Please check your profile.
+                </TableCell>
+              </TableRow>
+            )}
+            {!isLoading && activeShop && !orders?.length && (
               <TableRow>
                 <TableCell colSpan={4} className="text-center">
                   You haven't placed any orders yet.
                 </TableCell>
               </TableRow>
             )}
-            {!isLoading &&
+            {!isLoading && activeShop &&
               orders?.map((order) => (
                 <TableRow key={order.id} onClick={() => handleOrderClick(order.id)} className="cursor-pointer">
                   <TableCell className="font-medium">{order.id.substring(0, 8)}...</TableCell>
