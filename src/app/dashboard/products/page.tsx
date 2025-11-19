@@ -158,7 +158,9 @@ export default function ProductsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>Edit</DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/products/edit/${product.id}`}>Edit</Link>
+                          </DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive">
                             Delete
                           </DropdownMenuItem>

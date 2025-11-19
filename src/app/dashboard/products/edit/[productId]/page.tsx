@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -29,12 +30,12 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import { addDoc, collection, doc } from 'firebase/firestore';
-import { useRouter } from 'next/navigation';
+import { collection, doc, updateDoc } from 'firebase/firestore';
+import { useRouter, useParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { v4 as uuidv4 } from 'uuid';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { Product } from '@/lib/data';
 
 const variantSchema = z.object({
     sku: z.string().min(1, { message: 'SKU is required.' }),
@@ -64,11 +65,14 @@ interface Category {
   name: string;
 }
 
-export default function AddProductPage() {
+export default function EditProductPage() {
   const firestore = useFirestore();
   const router = useRouter();
+  const params = useParams();
   const { toast } = useToast();
-  const { user, isUserLoading } = useUser();
+  const { user } = useUser();
+
+  const productId = params.productId as string;
 
   const userDocRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -77,7 +81,15 @@ export default function AddProductPage() {
 
   const { data: userData, isLoading: isUserDataLoading } = useDoc<UserData>(userDocRef);
   const shopId = userData?.shopId;
+  const isOwner = userData?.role === 'owner';
+
+  const productDocRef = useMemoFirebase(() => {
+    if (!shopId || !productId) return null;
+    return doc(firestore, `shops/${shopId}/products`, productId);
+  }, [shopId, productId, firestore]);
   
+  const { data: productData, isLoading: isProductLoading } = useDoc<Product>(productDocRef);
+
   const categoriesRef = useMemoFirebase(() => {
     if (!shopId) return null;
     return collection(firestore, `shops/${shopId}/categories`);
@@ -95,6 +107,18 @@ export default function AddProductPage() {
       variants: [{ sku: '', price: 0, stockQty: 0 }],
     },
   });
+  
+  useEffect(() => {
+    if (productData) {
+      form.reset({
+        name: productData.name,
+        category: productData.category,
+        description: productData.description,
+        images: productData.images?.map(url => ({ url })) || [{ url: '' }],
+        variants: productData.variants,
+      });
+    }
+  }, [productData, form]);
 
   const { fields: variantFields, append: appendVariant, remove: removeVariant } = useFieldArray({
     control: form.control,
@@ -108,36 +132,28 @@ export default function AddProductPage() {
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!shopId) {
-        toast({
-            variant: 'destructive',
-            title: 'Operation Failed',
-            description: 'You are not associated with a shop.',
-        });
+    if (!productDocRef) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Product reference not found.' });
         return;
     }
 
     try {
-      const productId = `PROD-${uuidv4().substring(0, 4).toUpperCase()}`;
       const totalStock = values.variants.reduce((sum, v) => sum + v.stockQty, 0);
 
-      await addDoc(collection(firestore, `shops/${shopId}/products`), {
-        productId: productId,
-        shopId: shopId,
+      await updateDoc(productDocRef, {
         name: values.name,
         category: values.category,
         description: values.description,
         variants: values.variants,
-        price: values.variants[0]?.price || 0,
-        stockQty: totalStock,
+        price: values.variants[0]?.price || 0, // Recalculate main price
+        stockQty: totalStock, // Recalculate total stock
         images: values.images.map(img => img.url),
-        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
 
       toast({
-        title: 'Product Added',
-        description: `Product "${values.name}" has been successfully added.`,
+        title: 'Product Updated',
+        description: `Product "${values.name}" has been successfully updated.`,
       });
 
       router.push('/dashboard/products');
@@ -145,17 +161,20 @@ export default function AddProductPage() {
     } catch (error: any) {
       toast({
         variant: 'destructive',
-        title: 'Failed to Add Product',
+        title: 'Failed to Update Product',
         description: error.message,
       });
     }
   }
 
-  const isLoading = isUserLoading || isUserDataLoading || areCategoriesLoading;
-  const isOwner = userData?.role === 'owner';
-
+  const isLoading = isUserDataLoading || isProductLoading || areCategoriesLoading;
+  
   if (isLoading) {
-    return <div className="w-full">Loading...</div>;
+    return (
+        <div className="flex w-full items-center justify-center p-8">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+    );
   }
 
   if (!isOwner) {
@@ -164,10 +183,26 @@ export default function AddProductPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Access Denied</CardTitle>
-                    <CardDescription>Only shop owners can add new products.</CardDescription>
+                    <CardDescription>Only shop owners can edit products.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Button onClick={() => router.back()}>Go Back</Button>
+                </CardContent>
+            </Card>
+        </div>
+    );
+  }
+
+  if (!productData) {
+     return (
+        <div className="w-full">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Product Not Found</CardTitle>
+                    <CardDescription>The product you are trying to edit does not exist.</CardDescription>
+                </CardHeader>
+                 <CardContent>
+                    <Button onClick={() => router.push('/dashboard/products')}>Go to Products</Button>
                 </CardContent>
             </Card>
         </div>
@@ -178,8 +213,8 @@ export default function AddProductPage() {
     <div className="w-full">
         <Card>
             <CardHeader>
-            <CardTitle>Add a New Product</CardTitle>
-            <CardDescription>Fill out the details for your new product and its variants.</CardDescription>
+            <CardTitle>Edit Product</CardTitle>
+            <CardDescription>Update the details for your product.</CardDescription>
             </CardHeader>
             <CardContent>
             <Form {...form}>
@@ -280,7 +315,7 @@ export default function AddProductPage() {
                              <PlusCircle className="mr-2 h-4 w-4" />
                             Add Image URL
                         </Button>
-                        <FormField
+                         <FormField
                             control={form.control}
                             name="images"
                             render={() => (
@@ -371,7 +406,7 @@ export default function AddProductPage() {
                     </div>
                     
                     <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                        {form.formState.isSubmitting ? 'Adding Product...' : 'Add Product'}
+                        {form.formState.isSubmitting ? 'Saving Changes...' : 'Save Changes'}
                     </Button>
                 </form>
             </Form>
