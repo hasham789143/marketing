@@ -78,12 +78,7 @@ export default function CustomerProductsPage() {
   const { data: cartItems } = useCollection<CartItem>(cartRef);
 
   const allCategoriesRef = useMemoFirebase(() => {
-    // If we have active shops, query only their categories
     if (activeShops.length > 0) {
-      const shopIds = activeShops.map(s => s.shopId);
-      // We can't do an 'in' query on a collection group directly,
-      // so we will have to query all and filter, or query one by one.
-      // For now, we fetch all. This could be optimized.
       return query(collectionGroup(firestore, 'categories'));
     }
     return null;
@@ -149,7 +144,8 @@ export default function CustomerProductsPage() {
   }, [firestore, activeShops, selectedShopId, selectedCategory, toast]);
 
 
-  const handleAddToCart = async (product: Product) => {
+  const handleAddToCart = async (e: React.MouseEvent, product: Product) => {
+    e.preventDefault(); // Prevent navigating to product detail page
     if (!user || !firestore) {
       toast({
         variant: 'destructive',
@@ -169,7 +165,6 @@ export default function CustomerProductsPage() {
       return;
     }
     
-    // Check if cart contains items from another shop
     if (cartItems && cartItems.length > 0 && cartItems.some(item => item.shopId !== product.shopId)) {
         toast({
             variant: 'destructive',
@@ -192,7 +187,6 @@ export default function CustomerProductsPage() {
             const currentVariant = productData.variants?.find(v => v.sku === variantToAdd.sku);
 
             const cartCollectionRef = collection(firestore, `users/${user.uid}/cart`);
-            // We use product.id + sku as the cart item ID to ensure uniqueness per variant
             const cartItemRef = doc(cartCollectionRef, `${product.id}-${variantToAdd.sku}`);
             const cartItemDoc = await transaction.get(cartItemRef);
 
@@ -203,11 +197,9 @@ export default function CustomerProductsPage() {
             }
             
             if (cartItemDoc.exists()) {
-                // Item exists, increment quantity
                 const newQuantity = cartItemDoc.data().quantity + 1;
                 transaction.update(cartItemRef, { quantity: newQuantity });
             } else {
-                // Item doesn't exist, add new doc
                 transaction.set(cartItemRef, {
                     productId: product.id,
                     name: product.name,
@@ -304,7 +296,7 @@ export default function CustomerProductsPage() {
             No products found for this selection.
           </p>
         )}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {!isLoading && products?.map((product) => {
             const imageUrl = product.images?.[0];
             const displayVariant = product.variants?.[0];
@@ -314,47 +306,49 @@ export default function CustomerProductsPage() {
             const effectiveStock = stock - (cartItem?.quantity || 0);
 
             return (
-              <Card key={`${product.shopId}-${product.id}`} className="flex flex-col">
-                <div className="relative w-full h-48">
-                    {imageUrl ? (
-                    <Image
-                        alt={product.name}
-                        className="aspect-square rounded-t-lg object-cover"
-                        src={imageUrl}
-                        fill
-                        data-ai-hint={product.name}
-                    />
-                    ) : (
-                        <div className="w-full h-full bg-muted rounded-t-lg flex items-center justify-center">
-                            <span className="text-sm text-muted-foreground">No Image</span>
+              <Link key={`${product.shopId}-${product.id}`} href={`/customer/products/${product.id}`} className="group block">
+                <Card className="flex flex-col h-full overflow-hidden transition-all duration-200 group-hover:shadow-lg">
+                  <div className="relative w-full h-48">
+                      {imageUrl ? (
+                      <Image
+                          alt={product.name}
+                          className="aspect-square rounded-t-lg object-cover"
+                          src={imageUrl}
+                          fill
+                          data-ai-hint={product.name}
+                      />
+                      ) : (
+                          <div className="w-full h-full bg-muted rounded-t-lg flex items-center justify-center">
+                              <span className="text-sm text-muted-foreground">No Image</span>
+                          </div>
+                      )}
+                  </div>
+                  <CardContent className="p-4 flex-grow flex flex-col justify-between gap-4">
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-start gap-2">
+                          <h3 className="font-semibold text-lg capitalize">{product.name}</h3>
+                          <Badge variant="outline" className="shrink-0">{product.category}</Badge>
                         </div>
-                    )}
-                </div>
-                <CardHeader className="p-4">
-                  <CardTitle className="text-lg">{product.name}</CardTitle>
-                  <CardDescription>
-                    <Badge variant="outline">{product.category}</Badge>
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-4 pt-0 flex-grow flex flex-col justify-between">
-                    <div>
-                        <p className="font-semibold text-lg">
-                            PKR {price.toLocaleString()}
-                        </p>
-                        <p className={`text-sm ${effectiveStock > 5 ? 'text-muted-foreground' : 'text-red-600'}`}>
-                            {effectiveStock > 0 ? `${effectiveStock} in stock` : 'Out of stock'}
-                        </p>
-                    </div>
-                    <Button 
-                      className="w-full mt-4" 
-                      disabled={effectiveStock <= 0}
-                      onClick={() => handleAddToCart(product)}
-                    >
-                        <ShoppingCart className="mr-2 h-4 w-4" />
-                        {effectiveStock <= 0 ? 'Out of Stock' : 'Add to Cart'}
-                    </Button>
-                </CardContent>
-              </Card>
+                        <div className="flex justify-between items-baseline">
+                          <p className="font-bold text-xl text-primary">
+                              PKR {price.toLocaleString()}
+                          </p>
+                          <p className={`text-sm font-medium ${effectiveStock > 5 ? 'text-green-600' : 'text-red-600'}`}>
+                              {effectiveStock > 0 ? `${effectiveStock} in stock` : 'Out of stock'}
+                          </p>
+                        </div>
+                      </div>
+                      <Button 
+                        className="w-full mt-2" 
+                        disabled={effectiveStock <= 0}
+                        onClick={(e) => handleAddToCart(e, product)}
+                      >
+                          <ShoppingCart className="mr-2 h-4 w-4" />
+                          {effectiveStock <= 0 ? 'Out of Stock' : 'Add to Cart'}
+                      </Button>
+                  </CardContent>
+                </Card>
+              </Link>
             );
           })}
         </div>
@@ -362,5 +356,3 @@ export default function CustomerProductsPage() {
     </div>
   );
 }
-
-    
