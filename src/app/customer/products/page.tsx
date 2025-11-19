@@ -1,3 +1,4 @@
+
 'use client';
 import Image from 'next/image';
 import {
@@ -42,7 +43,10 @@ interface Category {
 
 interface CartItem {
     id: string;
+    productId: string;
+    shopId: string;
     quantity: number;
+    sku: string;
 }
 
 export default function CustomerProductsPage() {
@@ -74,8 +78,16 @@ export default function CustomerProductsPage() {
   const { data: cartItems } = useCollection<CartItem>(cartRef);
 
   const allCategoriesRef = useMemoFirebase(() => {
-    return query(collectionGroup(firestore, 'categories'));
-  }, [firestore]);
+    // If we have active shops, query only their categories
+    if (activeShops.length > 0) {
+      const shopIds = activeShops.map(s => s.shopId);
+      // We can't do an 'in' query on a collection group directly,
+      // so we will have to query all and filter, or query one by one.
+      // For now, we fetch all. This could be optimized.
+      return query(collectionGroup(firestore, 'categories'));
+    }
+    return null;
+  }, [firestore, activeShops]);
   
   const { data: allCategories } = useCollection<Category>(allCategoriesRef);
 
@@ -157,41 +169,46 @@ export default function CustomerProductsPage() {
       return;
     }
     
-    const productRef = doc(firestore, `shops/${product.shopId}/products`, product.id);
+    // Check if cart contains items from another shop
+    if (cartItems && cartItems.length > 0 && cartItems.some(item => item.shopId !== product.shopId)) {
+        toast({
+            variant: 'destructive',
+            title: 'Multiple Shops Not Supported',
+            description: 'Your cart contains items from another shop. Please clear your cart or complete that order first.',
+        });
+        return;
+    }
 
     try {
         await runTransaction(firestore, async (transaction) => {
+            const productRef = doc(firestore, `shops/${product.shopId}/products`, product.id);
             const productDoc = await transaction.get(productRef);
+            
             if (!productDoc.exists()) {
                 throw new Error("Product not found!");
             }
+
             const productData = productDoc.data() as Product;
             const currentVariant = productData.variants?.find(v => v.sku === variantToAdd.sku);
 
-            if (!currentVariant || currentVariant.stockQty <= 0) {
+            const cartCollectionRef = collection(firestore, `users/${user.uid}/cart`);
+            // We use product.id + sku as the cart item ID to ensure uniqueness per variant
+            const cartItemRef = doc(cartCollectionRef, `${product.id}-${variantToAdd.sku}`);
+            const cartItemDoc = await transaction.get(cartItemRef);
+
+            const quantityInCart = cartItemDoc.exists() ? cartItemDoc.data().quantity : 0;
+            
+            if (!currentVariant || currentVariant.stockQty <= quantityInCart) {
                 throw new Error("This item is out of stock.");
             }
-
-            const cartCollectionRef = collection(firestore, `users/${user.uid}/cart`);
-            const cartQuery = query(cartCollectionRef, where("productId", "==", product.id), where("sku", "==", variantToAdd.sku));
-            const cartSnapshot = await getDocs(cartQuery);
-            const existingCartItemDoc = cartSnapshot.docs[0];
-
-            const newStock = currentVariant.stockQty - 1;
-            const newVariants = productData.variants?.map(v => 
-                v.sku === variantToAdd.sku ? { ...v, stockQty: newStock } : v
-            );
-
-            transaction.update(productRef, { variants: newVariants });
             
-            if (existingCartItemDoc) {
+            if (cartItemDoc.exists()) {
                 // Item exists, increment quantity
-                const newQuantity = existingCartItemDoc.data().quantity + 1;
-                transaction.update(existingCartItemDoc.ref, { quantity: newQuantity });
+                const newQuantity = cartItemDoc.data().quantity + 1;
+                transaction.update(cartItemRef, { quantity: newQuantity });
             } else {
                 // Item doesn't exist, add new doc
-                const newCartItemRef = doc(cartCollectionRef);
-                transaction.set(newCartItemRef, {
+                transaction.set(cartItemRef, {
                     productId: product.id,
                     name: product.name,
                     price: variantToAdd.price,
@@ -282,7 +299,7 @@ export default function CustomerProductsPage() {
                 <Button variant="link" asChild><Link href="/customer/profile">Go to Profile to add a shop</Link></Button>
             </div>
         )}
-        {!isLoading && products.length === 0 && (
+        {!isLoading && products.length === 0 && activeShops.length > 0 && (
           <p className="text-center text-muted-foreground py-8">
             No products found for this selection.
           </p>
@@ -293,6 +310,8 @@ export default function CustomerProductsPage() {
             const displayVariant = product.variants?.[0];
             const price = displayVariant?.price ?? 0;
             const stock = getProductStock(product);
+            const cartItem = cartItems?.find(item => item.productId === product.id && item.sku === displayVariant?.sku);
+            const effectiveStock = stock - (cartItem?.quantity || 0);
 
             return (
               <Card key={`${product.shopId}-${product.id}`} className="flex flex-col">
@@ -322,17 +341,17 @@ export default function CustomerProductsPage() {
                         <p className="font-semibold text-lg">
                             PKR {price.toLocaleString()}
                         </p>
-                        <p className="text-sm text-muted-foreground">
-                            {stock > 0 ? `${stock} in stock` : 'Out of stock'}
+                        <p className={`text-sm ${effectiveStock > 5 ? 'text-muted-foreground' : 'text-red-600'}`}>
+                            {effectiveStock > 0 ? `${effectiveStock} in stock` : 'Out of stock'}
                         </p>
                     </div>
                     <Button 
                       className="w-full mt-4" 
-                      disabled={stock <= 0}
+                      disabled={effectiveStock <= 0}
                       onClick={() => handleAddToCart(product)}
                     >
                         <ShoppingCart className="mr-2 h-4 w-4" />
-                        Add to Cart
+                        {effectiveStock <= 0 ? 'Out of Stock' : 'Add to Cart'}
                     </Button>
                 </CardContent>
               </Card>

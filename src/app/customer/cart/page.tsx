@@ -12,8 +12,8 @@ import {
   TableFooter,
 } from '@/components/ui/table';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, doc, writeBatch, serverTimestamp, getDocs, query } from 'firebase/firestore';
-import { Home, Pencil, Phone, Trash2, User } from 'lucide-react';
+import { collection, doc, writeBatch, serverTimestamp, runTransaction, getDoc } from 'firebase/firestore';
+import { Home, MinusCircle, Pencil, Phone, PlusCircle, Trash2, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
@@ -23,12 +23,16 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
+import type { Product } from '@/lib/data';
 
 interface CartItem {
   id: string;
+  productId: string;
+  shopId: string;
   name: string;
   price: number;
   quantity: number;
+  sku: string;
   imageUrl?: string;
 }
 
@@ -53,6 +57,7 @@ export default function CartPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash on Delivery');
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const userDocRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -64,7 +69,11 @@ export default function CartPage() {
     return userData?.shopConnections?.find(c => c.status === 'active');
   }, [userData]);
   
-  const shopId = activeShop?.shopId;
+  // For simplicity, we assume a user can only order from one shop at a time.
+  // The cart should ideally only contain items from one shop.
+  const shopId = useMemo(() => {
+      return cartItems?.[0]?.shopId;
+  }, [cartItems]);
 
   const cartRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -74,7 +83,7 @@ export default function CartPage() {
   const { data: cartItems, isLoading } = useCollection<CartItem>(cartRef);
 
   const subtotal = cartItems?.reduce((acc, item) => acc + item.price * item.quantity, 0) ?? 0;
-  const deliveryCharge = 150; // Replace with dynamic logic if needed
+  const deliveryCharge = 150; 
   const total = subtotal + deliveryCharge;
 
   const handlePlaceOrder = async () => {
@@ -82,7 +91,7 @@ export default function CartPage() {
       toast({
         variant: 'destructive',
         title: 'Cannot Place Order',
-        description: 'Your cart is empty or you do not have an active shop connection.',
+        description: 'Your cart is empty or shop is invalid.',
       });
       return;
     }
@@ -97,47 +106,81 @@ export default function CartPage() {
       return;
     }
 
+    setIsPlacingOrder(true);
+
     try {
-      const orderId = `ORD-${uuidv4().toUpperCase()}`;
+      await runTransaction(firestore, async (transaction) => {
+        const orderId = `ORD-${uuidv4().toUpperCase()}`;
+        const orderRef = doc(firestore, `shops/${shopId}/orders`, orderId);
 
-      const orderPayload = {
-        orderId: orderId,
-        shopId: shopId,
-        customerId: user.uid,
-        customer: userData?.name || 'N/A',
-        items: cartItems.map(item => ({
-          productId: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          imageUrl: item.imageUrl || null,
-        })),
-        subtotal: subtotal,
-        tax: 0, // Assuming no tax for now
-        deliveryCharge: deliveryCharge,
-        discount: 0, // Assuming no discount
-        total: total,
-        orderStatus: 'Pending',
-        paymentStatus: 'Unpaid',
-        paymentMethod: paymentMethod,
-        deliveryAddress: userData?.deliveryAddress,
-        phone: userData?.phone,
-        date: new Date().toISOString(),
-        updatedAt: serverTimestamp(),
-        createdAt: serverTimestamp(),
-      };
-      
-      const batch = writeBatch(firestore);
+        // 1. Verify stock for all items in the cart
+        for (const item of cartItems) {
+          const productRef = doc(firestore, `shops/${item.shopId}/products`, item.productId);
+          const productDoc = await transaction.get(productRef);
 
-      const orderRef = doc(firestore, `shops/${shopId}/orders`, orderId);
-      batch.set(orderRef, orderPayload);
+          if (!productDoc.exists()) {
+            throw new Error(`Product ${item.name} not found.`);
+          }
 
-      const cartSnapshot = await getDocs(query(collection(firestore, `users/${user.uid}/cart`)));
-      cartSnapshot.forEach(doc => {
-        batch.delete(doc.ref);
+          const productData = productDoc.data() as Product;
+          const variant = productData.variants?.find(v => v.sku === item.sku);
+
+          if (!variant || variant.stockQty < item.quantity) {
+            throw new Error(`Not enough stock for ${item.name}. Available: ${variant?.stockQty || 0}, in cart: ${item.quantity}.`);
+          }
+        }
+
+        // 2. If all stock is available, create the order and decrement stock
+        const orderPayload = {
+          orderId: orderId,
+          shopId: shopId,
+          customerId: user.uid,
+          customer: userData?.name || 'N/A',
+          items: cartItems.map(item => ({
+            productId: item.productId,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            imageUrl: item.imageUrl || null,
+          })),
+          subtotal: subtotal,
+          tax: 0,
+          deliveryCharge: deliveryCharge,
+          discount: 0,
+          total: total,
+          orderStatus: 'Pending',
+          paymentStatus: 'Unpaid',
+          paymentMethod: paymentMethod,
+          deliveryAddress: userData?.deliveryAddress,
+          phone: userData?.phone,
+          date: new Date().toISOString(),
+          updatedAt: serverTimestamp(),
+          createdAt: serverTimestamp(),
+        };
+        
+        transaction.set(orderRef, orderPayload);
+
+        for (const item of cartItems) {
+           const productRef = doc(firestore, `shops/${item.shopId}/products`, item.productId);
+           const productDoc = await transaction.get(productRef); // Re-get inside transaction
+           const productData = productDoc.data() as Product;
+           
+           const newVariants = productData.variants?.map(v => {
+               if (v.sku === item.sku) {
+                   return { ...v, stockQty: v.stockQty - item.quantity };
+               }
+               return v;
+           });
+
+           transaction.update(productRef, { variants: newVariants });
+        }
+
+        // 3. Clear the user's cart
+        cartItems.forEach(item => {
+            const cartItemRef = doc(firestore, `users/${user.uid}/cart`, item.id);
+            transaction.delete(cartItemRef);
+        });
       });
-
-      await batch.commit();
 
       toast({
         title: 'Order Placed!',
@@ -145,34 +188,38 @@ export default function CartPage() {
       });
 
       router.push('/customer/orders');
+
     } catch (error: any) {
       toast({
         variant: 'destructive',
         title: 'Failed to Place Order',
         description: error.message,
       });
+    } finally {
+        setIsPlacingOrder(false);
     }
   };
   
-  const handleRemoveItem = async (itemId: string) => {
-    if (!user) return;
-    try {
-        const itemRef = doc(firestore, `users/${user.uid}/cart`, itemId);
-        const batch = writeBatch(firestore);
-        batch.delete(itemRef);
-        await batch.commit();
-        toast({
-            title: "Item Removed",
-            description: "The item has been removed from your cart.",
-        });
-    } catch (error: any) {
-        toast({
-            variant: "destructive",
-            title: "Failed to Remove Item",
-            description: error.message,
-        });
-    }
-};
+  const handleUpdateQuantity = async (cartItemId: string, newQuantity: number) => {
+      if (!user) return;
+      const cartItemRef = doc(firestore, `users/${user.uid}/cart`, cartItemId);
+
+      try {
+          const batch = writeBatch(firestore);
+          if (newQuantity > 0) {
+              batch.update(cartItemRef, { quantity: newQuantity });
+          } else {
+              batch.delete(cartItemRef);
+          }
+          await batch.commit();
+      } catch (error: any) {
+          toast({
+              variant: "destructive",
+              title: "Update Failed",
+              description: error.message
+          });
+      }
+  };
 
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8">
@@ -189,9 +236,9 @@ export default function CartPage() {
                     <TableRow>
                     <TableHead className="w-[80px]">Product</TableHead>
                     <TableHead>Name</TableHead>
-                    <TableHead>Quantity</TableHead>
+                    <TableHead className="text-center">Quantity</TableHead>
                     <TableHead className="text-right">Price</TableHead>
-                    <TableHead className="w-[50px]"><span className="sr-only">Remove</span></TableHead>
+                    <TableHead className="text-right">Total</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -220,14 +267,29 @@ export default function CartPage() {
                             />
                             </TableCell>
                             <TableCell className="font-medium">{item.name}</TableCell>
-                            <TableCell>{item.quantity}</TableCell>
-                            <TableCell className="text-right">PKR {item.price.toLocaleString()}</TableCell>
-                            <TableCell>
-                                <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(item.id)}>
-                                    <Trash2 className="h-4 w-4" />
-                                    <span className="sr-only">Remove item</span>
-                                </Button>
+                            <TableCell className="text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                     <Button 
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-6 w-6"
+                                        onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                                     >
+                                        <MinusCircle className="h-4 w-4" />
+                                    </Button>
+                                    <span>{item.quantity}</span>
+                                     <Button 
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-6 w-6"
+                                        onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                                     >
+                                        <PlusCircle className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </TableCell>
+                            <TableCell className="text-right">PKR {item.price.toLocaleString()}</TableCell>
+                            <TableCell className="text-right font-medium">PKR {(item.price * item.quantity).toLocaleString()}</TableCell>
                         </TableRow>
                         );
                     })}
@@ -315,9 +377,9 @@ export default function CartPage() {
                     <Button
                         className="w-full"
                         onClick={handlePlaceOrder}
-                        disabled={isLoading || !cartItems || cartItems.length === 0 || !userData?.deliveryAddress || !userData?.phone}
+                        disabled={isLoading || isPlacingOrder || !cartItems || cartItems.length === 0 || !userData?.deliveryAddress || !userData?.phone}
                     >
-                        Place Order
+                        {isPlacingOrder ? "Placing Order..." : "Place Order"}
                     </Button>
                 </CardContent>
             </Card>
@@ -327,3 +389,5 @@ export default function CartPage() {
     </div>
   );
 }
+
+    
