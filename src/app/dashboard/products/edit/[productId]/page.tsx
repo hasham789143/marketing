@@ -182,7 +182,15 @@ export default function EditProductPage() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    // No default values here; we set them in useEffect
+    defaultValues: productData ? {
+        name: productData.name || '',
+        category: productData.category || '',
+        subcategory: productData.subcategory || '',
+        description: productData.description || '',
+        images: productData.images?.map(url => ({ url })) || [{ url: '' }],
+        specificationTypes: productData.specificationTypes || [],
+        variants: productData.variants || [],
+    } : undefined,
   });
   
   useEffect(() => {
@@ -265,19 +273,11 @@ export default function EditProductPage() {
 
   const isLoading = isUserDataLoading || isProductLoading || areCategoriesLoading;
   
-  if (isLoading) {
+  if (isLoading || !productData || form.formState.isLoading || !form.formState.isDirty) {
     return <div className="flex w-full items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   }
   if (!isOwner) {
     return <Card><CardHeader><CardTitle>Access Denied</CardTitle><CardDescription>Only shop owners can edit products.</CardDescription></CardHeader><CardContent><Button onClick={() => router.back()}>Go Back</Button></CardContent></Card>;
-  }
-  if (!productData) {
-     return <Card><CardHeader><CardTitle>Product Not Found</CardTitle><CardDescription>The product you are trying to edit does not exist.</CardDescription></CardHeader><CardContent><Button onClick={() => router.push('/dashboard/products')}>Go to Products</Button></CardContent></Card>;
-  }
-
-  // Only render the form if the data is loaded and the form has been reset
-  if (form.formState.isLoading) {
-      return <div className="flex w-full items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   }
 
   return (
