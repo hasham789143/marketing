@@ -10,34 +10,17 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { addDoc, collection, doc, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, doc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { Product, Review } from '@/lib/data';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { StarRating } from '@/components/ui/star-rating';
 import { ReviewCard } from '@/components/review-card';
-
-// This is a simplified lookup. In a real app, this might come from a different collection.
-const findShopIdByProductId = async (firestore: any, productId: string) => {
-    // This is not efficient. A real app would need a better way to find the shop.
-    // For now, we assume a convention or a limited number of shops to query.
-    // This logic is a placeholder.
-    const shopsSnapshot = await collection(firestore, 'shops').get();
-    for (const shopDoc of shopsSnapshot.docs) {
-        const productRef = doc(firestore, `shops/${shopDoc.id}/products`, productId);
-        const productSnap = await productRef.get();
-        if (productSnap.exists()) {
-            return shopDoc.id;
-        }
-    }
-    return null;
-};
-
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -52,7 +35,6 @@ export default function ProductDetailPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // We need to figure out the shop ID to fetch the product.
-  // This is a simplification. A real app would likely pass the shopId in the URL.
   const [shopId, setShopId] = useState<string | null>(null);
 
   const productDocRef = useMemoFirebase(() => {
@@ -70,24 +52,25 @@ export default function ProductDetailPage() {
   
   // This is a workaround to find the shopId.
   // In a real application, you'd probably have the shopId in the route.
-  useState(() => {
+  useEffect(() => {
     async function getShopId() {
-        // A more robust solution would be needed here.
-        // This is a placeholder for demonstration purposes.
+        if (!firestore || !productId) return;
+        
+        // This is not efficient, but it's a temporary solution for the demo.
+        // A better approach would be to have a direct way to look up the shop for a product.
         const allShopsQuery = collection(firestore, 'shops');
-        const querySnapshot = await require('firebase/firestore').getDocs(allShopsQuery);
+        const querySnapshot = await getDocs(allShopsQuery);
         for(const shopDoc of querySnapshot.docs) {
-            const productDoc = await require('firebase/firestore').getDoc(doc(firestore, `shops/${shopDoc.id}/products`, productId));
-            if (productDoc.exists()) {
+            const productDoc = await doc(firestore, `shops/${shopDoc.id}/products`, productId);
+            const productSnapshot = await require('firebase/firestore').getDoc(productDoc);
+            if (productSnapshot.exists()) {
                 setShopId(shopDoc.id);
                 return;
             }
         }
     }
-    if(firestore && productId) {
-        getShopId();
-    }
-  });
+    getShopId();
+  }, [firestore, productId]);
   
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,5 +188,3 @@ export default function ProductDetailPage() {
     </div>
   );
 }
-
-    
