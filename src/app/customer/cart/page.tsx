@@ -69,18 +69,18 @@ export default function CartPage() {
     return userData?.shopConnections?.find(c => c.status === 'active');
   }, [userData]);
   
-  // For simplicity, we assume a user can only order from one shop at a time.
-  // The cart should ideally only contain items from one shop.
-  const shopId = useMemo(() => {
-      return cartItems?.[0]?.shopId;
-  }, [cartItems]);
-
   const cartRef = useMemoFirebase(() => {
     if (!user) return null;
     return collection(firestore, `users/${user.uid}/cart`);
   }, [user, firestore]);
 
   const { data: cartItems, isLoading } = useCollection<CartItem>(cartRef);
+
+  // For simplicity, we assume a user can only order from one shop at a time.
+  // The cart should ideally only contain items from one shop.
+  const shopId = useMemo(() => {
+      return cartItems?.[0]?.shopId;
+  }, [cartItems]);
 
   const subtotal = cartItems?.reduce((acc, item) => acc + item.price * item.quantity, 0) ?? 0;
   const deliveryCharge = 150; 
@@ -389,5 +389,3 @@ export default function CartPage() {
     </div>
   );
 }
-
-    
