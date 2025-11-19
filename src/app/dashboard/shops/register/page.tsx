@@ -29,10 +29,12 @@ import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { Separator } from '@/components/ui/separator';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 
 const formSchema = z.object({
   shopName: z.string().min(2, { message: 'Shop name must be at least 2 characters.' }),
+  shopType: z.enum(['online', 'physical'], { required_error: 'You must select a shop type.'}),
   shopImageUrl: z.string().url({ message: "Please enter a valid URL for the shop image." }),
   ownerName: z.string().min(2, { message: 'Owner name must be at least 2 characters.' }),
   ownerEmail: z.string().email({ message: 'Invalid email address.' }),
@@ -54,6 +56,7 @@ export default function RegisterShopPage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       shopName: '',
+      shopType: 'physical',
       shopImageUrl: '',
       ownerName: '',
       ownerEmail: '',
@@ -79,6 +82,7 @@ export default function RegisterShopPage() {
       await setDoc(doc(firestore, "shops", shopId), {
           shopId: shopId,
           shopName: values.shopName,
+          type: values.shopType,
           ownerUserId: ownerUser.uid,
           email: values.ownerEmail,
           phone: values.phone,
@@ -142,6 +146,40 @@ export default function RegisterShopPage() {
                             <FormMessage />
                         </FormItem>
                         )}
+                    />
+                     <FormField
+                      control={form.control}
+                      name="shopType"
+                      render={({ field }) => (
+                        <FormItem className="space-y-3">
+                          <FormLabel>Shop Type</FormLabel>
+                          <FormControl>
+                            <RadioGroup
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              className="flex flex-col space-y-1"
+                            >
+                              <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl>
+                                  <RadioGroupItem value="physical" />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  Physical (Requires customer connection)
+                                </FormLabel>
+                              </FormItem>
+                              <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl>
+                                  <RadioGroupItem value="online" />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  Online (Products are visible to all customers)
+                                </FormLabel>
+                              </FormItem>
+                            </RadioGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
                     <FormField
                         control={form.control}
@@ -281,3 +319,5 @@ export default function RegisterShopPage() {
     </div>
   );
 }
+
+    

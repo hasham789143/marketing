@@ -22,6 +22,8 @@ import {
 import { useMemo, useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
 
 interface ShopConnection {
   shopId: string;
@@ -41,92 +43,28 @@ interface CartItem {
     sku: string;
 }
 
+interface Shop {
+    id: string;
+    shopName: string;
+    type: 'online' | 'physical';
+}
+
 // Define the type for grouped products
 type GroupedProducts = {
   [category: string]: Product[];
 };
 
-export default function CustomerProductsPage() {
+
+const ProductGrid = ({ products }: { products: Product[] }) => {
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const { user } = useUser();
   const { toast } = useToast();
-  
-  const [selectedShopId, setSelectedShopId] = useState<string>('all');
-  const [groupedProducts, setGroupedProducts] = useState<GroupedProducts>({});
-  const [isLoading, setIsLoading] = useState(true);
 
-  const userDocRef = useMemoFirebase(() => {
-    if (!user) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [user, firestore]);
-
-  const { data: userData } = useDoc<UserData>(userDocRef);
-  
-  const activeShops = useMemo(() => {
-    return userData?.shopConnections?.filter(c => c.status === 'active') || [];
-  }, [userData]);
-  
   const cartRef = useMemoFirebase(() => {
     if(!user) return null;
     return collection(firestore, `users/${user.uid}/cart`);
   }, [user, firestore]);
-
   const { data: cartItems } = useCollection<CartItem>(cartRef);
-
-  useEffect(() => {
-    const fetchAndGroupProducts = async () => {
-      if (activeShops.length === 0) {
-        setGroupedProducts({});
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(true);
-
-      const productPromises: Promise<any>[] = [];
-      const shopsToQuery = selectedShopId === 'all' 
-        ? activeShops 
-        : activeShops.filter(s => s.shopId === selectedShopId);
-
-      shopsToQuery.forEach(shop => {
-        const productsQuery = query(collection(firestore, `shops/${shop.shopId}/products`));
-        productPromises.push(getDocs(productsQuery));
-      });
-
-      try {
-        const snapshots = await Promise.all(productPromises);
-        const allProducts: Product[] = [];
-        snapshots.forEach(snapshot => {
-          snapshot.docs.forEach((doc: any) => {
-            allProducts.push({ id: doc.id, ...doc.data() } as Product);
-          });
-        });
-
-        // Group the products by category
-        const grouped = allProducts.reduce((acc: GroupedProducts, product) => {
-          const category = product.category || 'Uncategorized';
-          if (!acc[category]) {
-            acc[category] = [];
-          }
-          acc[category].push(product);
-          return acc;
-        }, {});
-        
-        setGroupedProducts(grouped);
-      } catch (error) {
-        console.error("Error fetching products: ", error);
-        toast({
-          variant: "destructive",
-          title: "Failed to Fetch Products",
-          description: "There was an error loading products. Please try again."
-        })
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchAndGroupProducts();
-  }, [firestore, activeShops, selectedShopId, toast]);
-
 
   const handleAddToCart = async (e: React.MouseEvent, product: Product) => {
     e.preventDefault(); // Prevent navigating to product detail page
@@ -215,9 +153,20 @@ export default function CustomerProductsPage() {
   }
 
   const capitalizeFirstLetter = (string: string) => {
+    if (!string) return '';
     return string.charAt(0).toUpperCase() + string.slice(1);
   };
   
+    // Group the products by category
+    const groupedProducts = products.reduce((acc: GroupedProducts, product) => {
+      const category = product.category || 'Uncategorized';
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category].push(product);
+      return acc;
+    }, {});
+
   const categoryColors = [
     'bg-slate-50 dark:bg-slate-900/20',
     'bg-sky-50 dark:bg-sky-900/20',
@@ -226,50 +175,15 @@ export default function CustomerProductsPage() {
     'bg-rose-50 dark:bg-rose-900/20',
   ];
 
-
   return (
-    <div className="w-full p-4 md:p-6 lg:p-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Browse Products</h1>
-        <p className="text-muted-foreground mt-2">
-          {activeShops.length > 0 ? "Explore products from your connected shops, organized by category." : "Connect to a shop to start browsing products."}
-        </p>
-        <div className="pt-4 max-w-sm">
-            <Label htmlFor="shop-filter" className="text-sm font-medium">Filter by Shop</Label>
-            <Select
-                value={selectedShopId}
-                onValueChange={setSelectedShopId}
-                disabled={activeShops.length === 0}
-            >
-                <SelectTrigger id="shop-filter" className="w-full mt-1">
-                    <SelectValue placeholder="Select a shop" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">All Connected Shops</SelectItem>
-                    {activeShops.map(shop => (
-                        <SelectItem key={shop.shopId} value={shop.shopId}>
-                            {shop.shopName}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-        </div>
-      </div>
-      
-      <div className="space-y-12">
-        {isLoading && <p className="text-center py-8 text-muted-foreground">Loading products...</p>}
-        
-        {!isLoading && Object.keys(groupedProducts).length === 0 && (
+     <div className="space-y-12">
+        {Object.keys(groupedProducts).length === 0 && (
             <div className="text-center text-muted-foreground py-8 rounded-lg border-2 border-dashed">
-                <p className="font-medium">No products to display.</p>
-                {activeShops.length > 0 
-                  ? <p>The selected shop(s) may not have any products yet.</p>
-                  : <Button variant="link" asChild><Link href="/customer/profile">Go to Profile to add a shop</Link></Button>
-                }
+                <p className="font-medium">No products to display in this section.</p>
             </div>
         )}
 
-        {!isLoading && Object.entries(groupedProducts).map(([category, products], index) => (
+        {Object.entries(groupedProducts).map(([category, products], index) => (
           <section key={category} className={`rounded-xl p-4 md:p-6 ${categoryColors[index % categoryColors.length]}`}>
             <h2 className="text-2xl font-bold tracking-tight border-b pb-2 mb-6">{category}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -332,6 +246,123 @@ export default function CustomerProductsPage() {
           </section>
         ))}
       </div>
+  );
+};
+
+
+export default function CustomerProductsPage() {
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const { toast } = useToast();
+  
+  const [onlineShops, setOnlineShops] = useState<Shop[]>([]);
+  const [onlineProducts, setOnlineProducts] = useState<Product[]>([]);
+
+  const [connectedPhysicalProducts, setConnectedPhysicalProducts] = useState<Product[]>([]);
+  
+  const [isLoading, setIsLoading] = useState(true);
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+
+  const { data: userData } = useDoc<UserData>(userDocRef);
+  
+  const activePhysicalShops = useMemo(() => {
+    return userData?.shopConnections?.filter(c => c.status === 'active') || [];
+  }, [userData]);
+
+  useEffect(() => {
+    const fetchAllProducts = async () => {
+      setIsLoading(true);
+
+      try {
+        // Fetch online shops
+        const onlineShopsQuery = query(collection(firestore, 'shops'), where('type', '==', 'online'));
+        const onlineShopsSnapshot = await getDocs(onlineShopsQuery);
+        const fetchedOnlineShops = onlineShopsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Shop));
+        setOnlineShops(fetchedOnlineShops);
+        
+        // Fetch products for online shops
+        if (fetchedOnlineShops.length > 0) {
+            const onlineProductPromises = fetchedOnlineShops.map(shop => 
+                getDocs(query(collection(firestore, `shops/${shop.id}/products`)))
+            );
+            const onlineSnapshots = await Promise.all(onlineProductPromises);
+            const allOnlineProducts: Product[] = [];
+            onlineSnapshots.forEach(snapshot => {
+                snapshot.docs.forEach((doc: any) => {
+                    allOnlineProducts.push({ id: doc.id, ...doc.data() } as Product);
+                });
+            });
+            setOnlineProducts(allOnlineProducts);
+        }
+
+        // Fetch products for connected physical shops
+        if (activePhysicalShops.length > 0) {
+            const physicalProductPromises = activePhysicalShops.map(shop => 
+                getDocs(query(collection(firestore, `shops/${shop.shopId}/products`)))
+            );
+            const physicalSnapshots = await Promise.all(physicalProductPromises);
+            const allPhysicalProducts: Product[] = [];
+            physicalSnapshots.forEach(snapshot => {
+                snapshot.docs.forEach((doc: any) => {
+                    allPhysicalProducts.push({ id: doc.id, ...doc.data() } as Product);
+                });
+            });
+            setConnectedPhysicalProducts(allPhysicalProducts);
+        }
+        
+      } catch (error) {
+        console.error("Error fetching products: ", error);
+        toast({
+          variant: "destructive",
+          title: "Failed to Fetch Products",
+          description: "There was an error loading products. Please try again."
+        })
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAllProducts();
+  }, [firestore, activePhysicalShops, toast]);
+
+
+  return (
+    <div className="w-full p-4 md:p-6 lg:p-8">
+       <div className="mb-6">
+        <h1 className="text-3xl font-bold tracking-tight">Browse Products</h1>
+        <p className="text-muted-foreground mt-2">
+          Explore products from online stores and your connected shops.
+        </p>
+      </div>
+
+       <Tabs defaultValue="online" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="online">Online Shops</TabsTrigger>
+            <TabsTrigger value="connected">Your Connected Shops</TabsTrigger>
+        </TabsList>
+        <TabsContent value="online" className="mt-6">
+            <p className="text-sm text-muted-foreground mb-4">These products are available from online stores and are visible to all customers.</p>
+            {isLoading ? <p>Loading...</p> : <ProductGrid products={onlineProducts} />}
+        </TabsContent>
+        <TabsContent value="connected" className="mt-6">
+            <p className="text-sm text-muted-foreground mb-4">These products are from your connected physical stores.</p>
+            {isLoading ? <p>Loading...</p> : 
+                (activePhysicalShops.length > 0 ? 
+                    <ProductGrid products={connectedPhysicalProducts} /> :
+                     <div className="text-center text-muted-foreground py-8 rounded-lg border-2 border-dashed">
+                        <p className="font-medium">You are not connected to any physical shops.</p>
+                        <Button variant="link" asChild><Link href="/customer/profile">Go to Profile to add a shop</Link></Button>
+                    </div>
+                )
+            }
+        </TabsContent>
+        </Tabs>
     </div>
   );
 }
+
+    

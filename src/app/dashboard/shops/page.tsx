@@ -37,6 +37,7 @@ interface Shop {
     status: string;
     phone: string;
     createdAt: Timestamp;
+    type: 'online' | 'physical';
 }
 
 export default function ShopsPage() {
@@ -53,6 +54,17 @@ export default function ShopsPage() {
         return 'secondary';
       case 'blocked':
         return 'destructive';
+      default:
+        return 'outline';
+    }
+  };
+  
+   const getTypeVariant = (type: string) => {
+    switch (type) {
+      case 'online':
+        return 'secondary';
+      case 'physical':
+        return 'outline';
       default:
         return 'outline';
     }
@@ -93,9 +105,9 @@ export default function ShopsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Shop Name</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead className="hidden sm:table-cell">Contact</TableHead>
                 <TableHead className="hidden lg:table-cell">Shop ID</TableHead>
-                <TableHead className="hidden lg:table-cell">Owner ID</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="hidden md:table-cell">Created At</TableHead>
                 <TableHead>
@@ -108,9 +120,11 @@ export default function ShopsPage() {
               {!isLoading && shops?.map((shop) => (
                 <TableRow key={shop.id}>
                   <TableCell className="font-medium">{shop.shopName}</TableCell>
+                  <TableCell>
+                    <Badge variant={getTypeVariant(shop.type)}>{shop.type}</Badge>
+                  </TableCell>
                   <TableCell className="hidden sm:table-cell">{shop.phone}</TableCell>
                   <TableCell className="hidden lg:table-cell truncate max-w-24">{shop.id}</TableCell>
-                  <TableCell className="hidden lg:table-cell truncate max-w-24">{shop.ownerUserId}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(shop.status)}>{shop.status}</Badge>
                   </TableCell>
