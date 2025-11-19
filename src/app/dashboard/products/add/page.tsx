@@ -40,6 +40,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
+import { SpecificationType } from '@/lib/data';
 
 const imageSchema = z.object({
   url: z.string().url({ message: 'Please enter a valid URL.' }).min(1, 'URL is required.'),
@@ -82,9 +83,9 @@ interface UserData {
 interface Category {
   id: string;
   name: string;
+  specificationTypes?: SpecificationType[];
 }
 
-// Helper function to generate cartesian product of specifications
 const getVariantCombinations = (specTypes: FormValues['specificationTypes']) => {
     if (!specTypes || specTypes.length === 0) {
       return [];
@@ -96,29 +97,21 @@ const getVariantCombinations = (specTypes: FormValues['specificationTypes']) => 
         return;
       }
       const spec = specs[index];
-      // Filter out empty values before creating combinations
       const validValues = spec.values.filter(v => v.trim() !== '');
       if (validValues.length === 0 && spec.name.trim() !== '') {
-          // If a spec type is named but has no values, we can't create variants.
-          // To avoid an empty loop, we can either skip or handle as an incomplete state.
-          // For now, we continue to the next spec type to avoid breaking the chain.
           recurse(specs, index + 1, current);
           return;
       }
-
       for (const value of validValues) {
         recurse(specs, index + 1, [...current, { name: spec.name, value }]);
       }
     };
-    // Filter out spec types that don't have a name
     const validSpecTypes = specTypes.filter(st => st.name && st.name.trim() !== '');
     recurse(validSpecTypes, 0, []);
     return result;
 };
 
-// Sub-component to manage nested specification values
-function SpecificationValues({ specTypeIndex }: { specTypeIndex: number }) {
-    const { control } = useFormContext<FormValues>();
+function SpecificationValues({ specTypeIndex, control }: { specTypeIndex: number, control: any }) {
     const { fields: valueFields, append: appendValue, remove: removeValue } = useFieldArray({
         control,
         name: `specificationTypes.${specTypeIndex}.values`
@@ -192,7 +185,7 @@ export default function AddProductPage() {
     name: "images"
   });
   
-  const { fields: specTypeFields, append: appendSpecType, remove: removeSpecType } = useFieldArray({
+  const { fields: specTypeFields, append: appendSpecType, remove: removeSpecType, replace: replaceSpecTypes } = useFieldArray({
     control: form.control,
     name: "specificationTypes",
   });
@@ -203,12 +196,11 @@ export default function AddProductPage() {
   });
 
   const watchedSpecTypes = useWatch({ control: form.control, name: 'specificationTypes' });
+  const watchedCategory = useWatch({ control: form.control, name: 'category' });
 
-  // This effect synchronizes the variants table with the specification types
   useEffect(() => {
     const combinations = getVariantCombinations(watchedSpecTypes);
     const newVariants = combinations.map(combo => {
-      // Find an existing variant that matches the new combination.
       const existingVariant = variantFields.find(v => 
         JSON.stringify(v.specifications) === JSON.stringify(combo)
       );
@@ -220,10 +212,20 @@ export default function AddProductPage() {
       };
     });
     replaceVariants(newVariants);
-  // Using JSON.stringify to deep-compare the watched value, which is an array of objects.
-  // This is a common pattern when a hook's dependency is a complex object.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(watchedSpecTypes), replaceVariants]);
+  }, [JSON.stringify(watchedSpecTypes)]);
+
+  useEffect(() => {
+    if (watchedCategory && categories) {
+        const selectedCategory = categories.find(c => c.name === watchedCategory);
+        if (selectedCategory?.specificationTypes) {
+            replaceSpecTypes(selectedCategory.specificationTypes);
+        } else {
+            replaceSpecTypes([]);
+        }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedCategory, categories]);
   
 
   async function onSubmit(values: FormValues) {
@@ -365,7 +367,7 @@ export default function AddProductPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Product Specifications</CardTitle>
-                        <CardDescription>Define specifications like Size or Color. This will generate the variant combinations below.</CardDescription>
+                        <CardDescription>Specifications are loaded from the selected category. You can modify them for this product only.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         {specTypeFields.map((specTypeField, specTypeIndex) => (
@@ -382,7 +384,7 @@ export default function AddProductPage() {
                                 </div>
                                 <div className="pl-4 space-y-2">
                                      <FormLabel>Values</FormLabel>
-                                     <SpecificationValues specTypeIndex={specTypeIndex} />
+                                     <SpecificationValues specTypeIndex={specTypeIndex} control={form.control} />
                                 </div>
                             </div>
                         ))}
