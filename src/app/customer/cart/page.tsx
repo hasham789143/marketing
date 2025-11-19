@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/table';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, writeBatch, serverTimestamp, getDocs, query } from 'firebase/firestore';
-import { Trash2 } from 'lucide-react';
+import { Home, Pencil, Phone, Trash2, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
@@ -21,6 +21,8 @@ import { useMemo, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import Link from 'next/link';
 
 interface CartItem {
   id: string;
@@ -119,6 +121,7 @@ export default function CartPage() {
         paymentStatus: 'Unpaid',
         paymentMethod: paymentMethod,
         deliveryAddress: userData?.deliveryAddress,
+        phone: userData?.phone,
         date: new Date().toISOString(),
         updatedAt: serverTimestamp(),
         createdAt: serverTimestamp(),
@@ -175,99 +178,150 @@ export default function CartPage() {
     <div className="container mx-auto p-4 md:p-6 lg:p-8">
       <div className="mb-4">
         <h1 className="text-2xl font-bold">My Shopping Cart</h1>
-        <p className="text-muted-foreground">Review your items before placing an order.</p>
-      </div>
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[80px]">Product</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Quantity</TableHead>
-              <TableHead className="text-right">Price</TableHead>
-              <TableHead className="w-[50px]"><span className="sr-only">Remove</span></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center">Loading cart...</TableCell>
-              </TableRow>
-            )}
-            {!isLoading && (!cartItems || cartItems.length === 0) && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center">Your cart is empty.</TableCell>
-              </TableRow>
-            )}
-            {!isLoading &&
-              cartItems?.map((item) => {
-                return (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <Image
-                        alt={item.name}
-                        className="aspect-square rounded-md object-cover"
-                        height="64"
-                        src={item.imageUrl || 'https://placehold.co/64x64'}
-                        width="64"
-                        data-ai-hint={'product image'}
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>{item.quantity}</TableCell>
-                    <TableCell className="text-right">PKR {item.price.toLocaleString()}</TableCell>
-                     <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(item.id)}>
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Remove item</span>
-                        </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-          </TableBody>
-          <TableFooter>
-            <TableRow>
-              <TableCell colSpan={4}>Subtotal</TableCell>
-              <TableCell className="text-right">PKR {subtotal.toLocaleString()}</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell colSpan={4}>Delivery Charge</TableCell>
-              <TableCell className="text-right">PKR {deliveryCharge.toLocaleString()}</TableCell>
-            </TableRow>
-            <TableRow className="font-semibold">
-              <TableCell colSpan={4}>Total</TableCell>
-              <TableCell className="text-right">PKR {total.toLocaleString()}</TableCell>
-            </TableRow>
-          </TableFooter>
-        </Table>
+        <p className="text-muted-foreground">Review your items and shipping details before placing an order.</p>
       </div>
 
-      <Separator className="my-6" />
-
-      <div className="grid md:grid-cols-2 gap-8">
-        <div className="space-y-4">
-            <h3 className="text-lg font-medium">Payment Method</h3>
-            <RadioGroup value={paymentMethod} onValueChange={(value: PaymentMethod) => setPaymentMethod(value)} className="space-y-2">
-                <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Cash on Delivery" id="cod" />
-                    <Label htmlFor="cod">Cash on Delivery (COD)</Label>
-                </div>
-                 <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Pay at End of Month" id="monthly" />
-                    <Label htmlFor="monthly">Pay at End of Month</Label>
-                </div>
-            </RadioGroup>
+      <div className="grid gap-8 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+            <div className="overflow-x-auto rounded-lg border">
+                <Table>
+                <TableHeader>
+                    <TableRow>
+                    <TableHead className="w-[80px]">Product</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Quantity</TableHead>
+                    <TableHead className="text-right">Price</TableHead>
+                    <TableHead className="w-[50px]"><span className="sr-only">Remove</span></TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {isLoading && (
+                    <TableRow>
+                        <TableCell colSpan={5} className="text-center h-24">Loading cart...</TableCell>
+                    </TableRow>
+                    )}
+                    {!isLoading && (!cartItems || cartItems.length === 0) && (
+                    <TableRow>
+                        <TableCell colSpan={5} className="text-center h-24">Your cart is empty.</TableCell>
+                    </TableRow>
+                    )}
+                    {!isLoading &&
+                    cartItems?.map((item) => {
+                        return (
+                        <TableRow key={item.id}>
+                            <TableCell>
+                            <Image
+                                alt={item.name}
+                                className="aspect-square rounded-md object-cover"
+                                height="64"
+                                src={item.imageUrl || 'https://placehold.co/64x64'}
+                                width="64"
+                                data-ai-hint={'product image'}
+                            />
+                            </TableCell>
+                            <TableCell className="font-medium">{item.name}</TableCell>
+                            <TableCell>{item.quantity}</TableCell>
+                            <TableCell className="text-right">PKR {item.price.toLocaleString()}</TableCell>
+                            <TableCell>
+                                <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(item.id)}>
+                                    <Trash2 className="h-4 w-4" />
+                                    <span className="sr-only">Remove item</span>
+                                </Button>
+                            </TableCell>
+                        </TableRow>
+                        );
+                    })}
+                </TableBody>
+                </Table>
+            </div>
         </div>
 
-        <div className="flex flex-col justify-end">
-          <Button
-            className="w-full"
-            onClick={handlePlaceOrder}
-            disabled={isLoading || !cartItems || cartItems.length === 0}
-          >
-            Place Order
-          </Button>
+        <div className="space-y-8">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>Shipping Information</CardTitle>
+                        <CardDescription>Details for your delivery.</CardDescription>
+                    </div>
+                     <Button asChild variant="outline" size="sm">
+                        <Link href="/customer/profile">
+                            <Pencil className="h-3 w-3 mr-2" />
+                            Edit
+                        </Link>
+                    </Button>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm">
+                   <div className="flex items-start gap-3">
+                        <User className="h-5 w-5 text-muted-foreground mt-0.5" />
+                        <div className="flex-1">
+                            <p className="font-medium">{userData?.name || 'N/A'}</p>
+                            <p className="text-muted-foreground">Customer Name</p>
+                        </div>
+                   </div>
+                   <div className="flex items-start gap-3">
+                        <Home className="h-5 w-5 text-muted-foreground mt-0.5" />
+                        <div className="flex-1">
+                            <p className="font-medium">{userData?.deliveryAddress || 'No address provided'}</p>
+                            <p className="text-muted-foreground">Delivery Address</p>
+                        </div>
+                   </div>
+                    <div className="flex items-start gap-3">
+                        <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
+                        <div className="flex-1">
+                            <p className="font-medium">{userData?.phone || 'No phone provided'}</p>
+                            <p className="text-muted-foreground">Contact Number</p>
+                        </div>
+                   </div>
+                    {(!userData?.deliveryAddress || !userData?.phone) && (
+                        <p className="text-destructive font-medium">Please complete your profile to place an order.</p>
+                    )}
+                </CardContent>
+            </Card>
+            
+            <Card>
+                <CardHeader>
+                    <CardTitle>Order Summary</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                            <span>Subtotal</span>
+                            <span>PKR {subtotal.toLocaleString()}</span>
+                        </div>
+                         <div className="flex justify-between">
+                            <span>Delivery Charge</span>
+                            <span>PKR {deliveryCharge.toLocaleString()}</span>
+                        </div>
+                        <Separator />
+                        <div className="flex justify-between font-bold text-base">
+                            <span>Total</span>
+                            <span>PKR {total.toLocaleString()}</span>
+                        </div>
+                    </div>
+                     <Separator />
+                     <div className="space-y-2">
+                        <h3 className="text-sm font-medium">Payment Method</h3>
+                        <RadioGroup value={paymentMethod} onValueChange={(value: PaymentMethod) => setPaymentMethod(value)} className="space-y-2">
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="Cash on Delivery" id="cod" />
+                                <Label htmlFor="cod">Cash on Delivery (COD)</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="Pay at End of Month" id="monthly" />
+                                <Label htmlFor="monthly">Pay at End of Month</Label>
+                            </div>
+                        </RadioGroup>
+                    </div>
+                    <Button
+                        className="w-full"
+                        onClick={handlePlaceOrder}
+                        disabled={isLoading || !cartItems || cartItems.length === 0 || !userData?.deliveryAddress || !userData?.phone}
+                    >
+                        Place Order
+                    </Button>
+                </CardContent>
+            </Card>
+
         </div>
       </div>
     </div>
