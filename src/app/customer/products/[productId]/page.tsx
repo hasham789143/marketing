@@ -21,6 +21,13 @@ import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { StarRating } from '@/components/ui/star-rating';
 import { ReviewCard } from '@/components/review-card';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from '@/components/ui/carousel';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -119,12 +126,25 @@ export default function ProductDetailPage() {
       <Card>
         <CardContent className="p-6 grid md:grid-cols-2 gap-8">
           <div>
-            {product.images && product.images.length > 0 && (
-              <div className="aspect-square relative w-full rounded-lg overflow-hidden mb-4">
-                 <Image src={product.images[0]} alt={product.name} fill className="object-cover" />
-              </div>
-            )}
-            {/* Placeholder for multiple images/3D view */}
+            {product.images && product.images.length > 0 ? (
+                <Carousel className="w-full">
+                  <CarouselContent>
+                    {product.images.map((imgUrl, index) => (
+                      <CarouselItem key={index}>
+                        <div className="aspect-square relative w-full rounded-lg overflow-hidden">
+                          <Image src={imgUrl} alt={`${product.name} image ${index + 1}`} fill className="object-cover" />
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  <CarouselPrevious className="left-2" />
+                  <CarouselNext className="right-2" />
+                </Carousel>
+              ) : (
+                <div className="aspect-square relative w-full rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+                    <p className="text-muted-foreground">No Image</p>
+                </div>
+              )}
           </div>
           <div className="flex flex-col gap-4">
             <Badge variant="outline" className="w-fit">{product.category}</Badge>
