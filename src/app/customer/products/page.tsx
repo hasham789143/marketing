@@ -217,6 +217,14 @@ export default function CustomerProductsPage() {
   const capitalizeFirstLetter = (string: string) => {
     return string.charAt(0).toUpperCase() + string.slice(1);
   };
+  
+  const categoryColors = [
+    'bg-slate-50 dark:bg-slate-900/20',
+    'bg-sky-50 dark:bg-sky-900/20',
+    'bg-emerald-50 dark:bg-emerald-900/20',
+    'bg-amber-50 dark:bg-amber-900/20',
+    'bg-rose-50 dark:bg-rose-900/20',
+  ];
 
 
   return (
@@ -261,10 +269,10 @@ export default function CustomerProductsPage() {
             </div>
         )}
 
-        {!isLoading && Object.entries(groupedProducts).map(([category, products]) => (
-          <section key={category}>
+        {!isLoading && Object.entries(groupedProducts).map(([category, products], index) => (
+          <section key={category} className={`rounded-xl p-4 md:p-6 ${categoryColors[index % categoryColors.length]}`}>
             <h2 className="text-2xl font-bold tracking-tight border-b pb-2 mb-6">{category}</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {products.map((product) => {
                 const imageUrl = product.images?.[0];
                 const displayVariant = product.variants?.[0];
@@ -296,6 +304,7 @@ export default function CustomerProductsPage() {
                           <div className="space-y-2">
                             <div className="flex justify-between items-start gap-2">
                               <h3 className="font-semibold text-base leading-tight">{capitalizeFirstLetter(product.name)}</h3>
+                               <Badge variant="outline">{product.category}</Badge>
                             </div>
                             <div className="flex justify-between items-baseline">
                               <p className="font-bold text-lg text-primary">
