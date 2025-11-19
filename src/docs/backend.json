@@ -91,6 +91,10 @@
           "type": "string",
           "description": "Phone number of the user."
         },
+        "deliveryAddress": {
+            "type": "string",
+            "description": "Default delivery address for the user's orders."
+        },
         "role": {
           "type": "string",
           "description": "Role of the user (admin, owner, staff, customer)."

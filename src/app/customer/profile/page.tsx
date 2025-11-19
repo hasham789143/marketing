@@ -21,6 +21,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CheckCircle, Info, Loader2, Trash2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ShopConnection {
     shopId: string;
@@ -32,6 +33,7 @@ interface UserProfile {
   name: string;
   email: string;
   phone: string;
+  deliveryAddress?: string;
   shopConnections?: ShopConnection[];
 }
 
@@ -46,6 +48,7 @@ export default function CustomerProfilePage() {
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   // For the "Add Shop" form
@@ -67,6 +70,7 @@ export default function CustomerProfilePage() {
     if (userProfile) {
       setName(userProfile.name || '');
       setPhone(userProfile.phone || '');
+      setDeliveryAddress(userProfile.deliveryAddress || '');
     }
   }, [userProfile]);
 
@@ -144,6 +148,7 @@ export default function CustomerProfilePage() {
         await updateDoc(userDocRef, {
             name: name,
             phone: phone,
+            deliveryAddress: deliveryAddress,
         });
         toast({ title: 'Profile Updated', description: 'Your information has been saved successfully.'});
     } catch (error: any) {
@@ -184,10 +189,14 @@ export default function CustomerProfilePage() {
                 <Label htmlFor="phone">Phone Number</Label>
                 <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={isLoading || isSaving} />
             </div>
+            <div className="grid gap-2">
+                <Label htmlFor="deliveryAddress">Delivery Address</Label>
+                <Textarea id="deliveryAddress" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} disabled={isLoading || isSaving} placeholder="123 Main St, Anytown, USA 12345" />
+            </div>
             </CardContent>
             <CardFooter>
             <Button onClick={handleSaveChanges} disabled={isLoading || isSaving}>
-                {isSaving ? 'Saving...' : 'Save Changes'}
+                {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Changes'}
             </Button>
             </CardFooter>
         </Card>

@@ -1,3 +1,4 @@
+
 'use client';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -82,6 +83,16 @@ export default function CartPage() {
       });
       return;
     }
+    
+    if (!userData?.deliveryAddress) {
+      toast({
+        variant: 'destructive',
+        title: 'Missing Information',
+        description: 'Please add a delivery address to your profile before placing an order.',
+      });
+      router.push('/customer/profile');
+      return;
+    }
 
     try {
       const orderId = `ORD-${uuidv4().toUpperCase()}`;
@@ -106,7 +117,7 @@ export default function CartPage() {
         orderStatus: 'Pending',
         paymentStatus: 'Unpaid',
         paymentMethod: paymentMethod,
-        deliveryAddress: userData?.deliveryAddress || 'Default Address', // Placeholder
+        deliveryAddress: userData?.deliveryAddress,
         date: new Date().toISOString(),
         updatedAt: serverTimestamp(),
         createdAt: serverTimestamp(),
