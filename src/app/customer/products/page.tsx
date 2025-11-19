@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Product } from '@/lib/data';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { addDoc, collection, doc, query, where, getDocs, collectionGroup } from 'firebase/firestore';
+import { addDoc, collection, doc, query, where, getDocs, collectionGroup, writeBatch, runTransaction } from 'firebase/firestore';
 import { ShoppingCart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -40,6 +40,11 @@ interface Category {
   name: string;
 }
 
+interface CartItem {
+    id: string;
+    quantity: number;
+}
+
 export default function CustomerProductsPage() {
   const firestore = useFirestore();
   const { user } = useUser();
@@ -60,6 +65,13 @@ export default function CustomerProductsPage() {
   const activeShops = useMemo(() => {
     return userData?.shopConnections?.filter(c => c.status === 'active') || [];
   }, [userData]);
+  
+  const cartRef = useMemoFirebase(() => {
+    if(!user) return null;
+    return collection(firestore, `users/${user.uid}/cart`);
+  }, [user, firestore]);
+
+  const { data: cartItems } = useCollection<CartItem>(cartRef);
 
   const allCategoriesRef = useMemoFirebase(() => {
     return query(collectionGroup(firestore, 'categories'));
@@ -86,29 +98,19 @@ export default function CustomerProductsPage() {
 
       let productPromises: Promise<any>[] = [];
 
-      if (selectedShopId === 'all') {
-        // Fetch from all active shops
-        activeShops.forEach(shop => {
-          let productsQuery;
-          const productsCollection = collection(firestore, `shops/${shop.shopId}/products`);
-          if (selectedCategory === 'all') {
-            productsQuery = query(productsCollection);
-          } else {
-            productsQuery = query(productsCollection, where('category', '==', selectedCategory));
-          }
-          productPromises.push(getDocs(productsQuery));
-        });
-      } else {
-        // Fetch from a single selected shop
+      const shopsToQuery = selectedShopId === 'all' ? activeShops : activeShops.filter(s => s.shopId === selectedShopId);
+
+      shopsToQuery.forEach(shop => {
         let productsQuery;
-        const productsCollection = collection(firestore, `shops/${selectedShopId}/products`);
+        const productsCollection = collection(firestore, `shops/${shop.shopId}/products`);
         if (selectedCategory === 'all') {
           productsQuery = query(productsCollection);
         } else {
           productsQuery = query(productsCollection, where('category', '==', selectedCategory));
         }
         productPromises.push(getDocs(productsQuery));
-      }
+      });
+      
 
       try {
         const snapshots = await Promise.all(productPromises);
@@ -136,47 +138,88 @@ export default function CustomerProductsPage() {
 
 
   const handleAddToCart = async (product: Product) => {
-    if (!user) {
-        toast({
-            variant: "destructive",
-            title: "Not Logged In",
-            description: "You must be logged in to add items to your cart.",
-        });
-        return;
-    }
-    const variantToAdd = product.variants?.[0];
-    if (!variantToAdd) {
-        toast({
-            variant: "destructive",
-            title: "Product Unavailable",
-            description: "This product has no purchasable options.",
-        });
-        return;
+    if (!user || !firestore) {
+      toast({
+        variant: 'destructive',
+        title: 'Not Logged In',
+        description: 'You must be logged in to add items to your cart.',
+      });
+      return;
     }
 
-    try {
-      const cartRef = collection(firestore, `users/${user.uid}/cart`);
-      await addDoc(cartRef, {
-        productId: product.id,
-        name: product.name,
-        price: variantToAdd.price,
-        quantity: 1,
-        sku: variantToAdd.sku,
-        imageUrl: product.images?.[0] || null,
+    const variantToAdd = product.variants?.[0];
+    if (!variantToAdd) {
+      toast({
+        variant: 'destructive',
+        title: 'Product Unavailable',
+        description: 'This product has no purchasable options.',
       });
+      return;
+    }
+    
+    const productRef = doc(firestore, `shops/${product.shopId}/products`, product.id);
+
+    try {
+        await runTransaction(firestore, async (transaction) => {
+            const productDoc = await transaction.get(productRef);
+            if (!productDoc.exists()) {
+                throw new Error("Product not found!");
+            }
+            const productData = productDoc.data() as Product;
+            const currentVariant = productData.variants?.find(v => v.sku === variantToAdd.sku);
+
+            if (!currentVariant || currentVariant.stockQty <= 0) {
+                throw new Error("This item is out of stock.");
+            }
+
+            const cartCollectionRef = collection(firestore, `users/${user.uid}/cart`);
+            const cartQuery = query(cartCollectionRef, where("productId", "==", product.id), where("sku", "==", variantToAdd.sku));
+            const cartSnapshot = await getDocs(cartQuery);
+            const existingCartItemDoc = cartSnapshot.docs[0];
+
+            const newStock = currentVariant.stockQty - 1;
+            const newVariants = productData.variants?.map(v => 
+                v.sku === variantToAdd.sku ? { ...v, stockQty: newStock } : v
+            );
+
+            transaction.update(productRef, { variants: newVariants });
+            
+            if (existingCartItemDoc) {
+                // Item exists, increment quantity
+                const newQuantity = existingCartItemDoc.data().quantity + 1;
+                transaction.update(existingCartItemDoc.ref, { quantity: newQuantity });
+            } else {
+                // Item doesn't exist, add new doc
+                const newCartItemRef = doc(cartCollectionRef);
+                transaction.set(newCartItemRef, {
+                    productId: product.id,
+                    name: product.name,
+                    price: variantToAdd.price,
+                    quantity: 1,
+                    sku: variantToAdd.sku,
+                    imageUrl: product.images?.[0] || null,
+                    shopId: product.shopId,
+                });
+            }
+        });
 
       toast({
         title: 'Added to Cart',
         description: `${product.name} has been added to your cart.`,
       });
     } catch (error: any) {
-        toast({
-            variant: "destructive",
-            title: "Failed to Add to Cart",
-            description: error.message,
-        });
+      toast({
+        variant: 'destructive',
+        title: 'Failed to Add to Cart',
+        description: error.message,
+      });
     }
   };
+  
+  const getProductStock = (product: Product) => {
+      const displayVariant = product.variants?.[0];
+      return displayVariant?.stockQty ?? 0;
+  }
 
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8">
@@ -239,7 +282,7 @@ export default function CustomerProductsPage() {
                 <Button variant="link" asChild><Link href="/customer/profile">Go to Profile to add a shop</Link></Button>
             </div>
         )}
-        {!isLoading && !products?.length && (
+        {!isLoading && products.length === 0 && (
           <p className="text-center text-muted-foreground py-8">
             No products found for this selection.
           </p>
@@ -249,7 +292,7 @@ export default function CustomerProductsPage() {
             const imageUrl = product.images?.[0];
             const displayVariant = product.variants?.[0];
             const price = displayVariant?.price ?? 0;
-            const stock = displayVariant?.stockQty ?? 0;
+            const stock = getProductStock(product);
 
             return (
               <Card key={`${product.shopId}-${product.id}`} className="flex flex-col">
@@ -300,3 +343,5 @@ export default function CustomerProductsPage() {
     </div>
   );
 }
+
+    

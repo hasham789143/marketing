@@ -1,4 +1,3 @@
-
 export type ProductVariant = {
   sku: string;
   price: number;
@@ -7,6 +6,7 @@ export type ProductVariant = {
 
 export type Product = {
   id: string;
+  shopId: string;
   name: string;
   category: string;
   description?: string;
@@ -45,3 +45,5 @@ export const orders: Order[] = [];
 export const staff: Staff[] = [];
 
 export const staffActivityLogs: ActivityLog[] = [];
+
+    
