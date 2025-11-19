@@ -21,18 +21,17 @@ import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from '@
 import { collection, query, where, doc, updateDoc, arrayUnion, arrayRemove, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { useMemo } from 'react';
 
 interface UserData {
     role: string;
     shopId?: string;
-    shopConnections?: ShopConnection[];
 }
 
 interface ShopConnection {
     shopId: string;
     shopName: string;
-    status: 'pending' | 'active';
+    status: 'pending' | 'active' | 'rejected';
 }
 
 interface ConnectionRequest {
@@ -40,6 +39,8 @@ interface ConnectionRequest {
     name: string;
     email: string;
     shopConnections: ShopConnection[];
+    // This will be added client-side
+    request?: ShopConnection;
 }
 
 
@@ -57,48 +58,53 @@ export default function RequestsPage() {
   const shopId = userData?.shopId;
   const isOwner = userData?.role === 'owner';
 
-  // Find all users who have a pending request for THIS shop
+  // Find all users who have a connection entry for THIS shopId.
+  // We can't query for the status directly in a complex object within an array,
+  // so we fetch all connections for the shop and filter locally.
   const requestsRef = useMemoFirebase(() => {
     if (!shopId) return null;
     return query(
         collection(firestore, 'users'), 
-        where('shopConnections', 'array-contains', { shopId: shopId, shopName: '', status: 'pending' })
+        where('shopConnections.shopId', 'array-contains', shopId)
     );
-    // Note: The shopName is not known by the querier, so we have to be careful.
-    // A better way would be a dedicated `connectionRequests` subcollection.
-    // For now, we will filter client-side.
   }, [firestore, shopId]);
 
   const { data: usersWithRequests, isLoading: areRequestsLoading } = useCollection<ConnectionRequest>(requestsRef);
   
-  // Client-side filter to get the actual requests for this shop
-  const pendingRequests = usersWithRequests
-    ?.map(u => ({
-        ...u,
-        request: u.shopConnections.find(sc => sc.shopId === shopId && sc.status === 'pending')
-    }))
-    .filter(u => u.request);
+  // Client-side filter to find the actual pending requests for this shop
+  const pendingRequests = useMemo(() => {
+    if (!usersWithRequests || !shopId) return [];
+    return usersWithRequests
+      .map(u => {
+        // Find the specific connection object for the current shop
+        const request = u.shopConnections.find(sc => sc.shopId === shopId && sc.status === 'pending');
+        // Only include this user if they have a pending request for THIS shop
+        return request ? { ...u, request } : null;
+      })
+      .filter((u): u is ConnectionRequest & { request: ShopConnection } => u !== null);
+  }, [usersWithRequests, shopId]);
 
 
-  const handleRequest = async (customer: ConnectionRequest, newStatus: 'active' | 'rejected') => {
-    if (!customer.request || !shopId) return;
+  const handleRequest = async (customer: ConnectionRequest & { request: ShopConnection }, approve: boolean) => {
+    if (!shopId) return;
 
     const customerDocRef = doc(firestore, 'users', customer.id);
     const batch = writeBatch(firestore);
 
-    // Create the new connection object with the updated status
-    const newConnection = { ...customer.request, status: newStatus as 'active' | 'rejected' };
-    if (newStatus === 'rejected') {
-        // For rejection, we just remove the pending request
-         batch.update(customerDocRef, {
-            shopConnections: arrayRemove(customer.request)
-        });
-    } else {
-        // For approval, we remove the old and add the new
+    const oldConnection = customer.request;
+    const newStatus = approve ? 'active' : 'rejected';
+    
+    // For rejection, we'll just remove it. For approval, we'll update it.
+    // To update, we must remove the old and add the new one.
+    batch.update(customerDocRef, {
+        shopConnections: arrayRemove(oldConnection)
+    });
+
+    if (approve) {
+        // Create the new connection object with the updated status
+        const newConnection: ShopConnection = { ...oldConnection, status: 'active' };
+        
         batch.update(customerDocRef, {
-            shopConnections: arrayRemove(customer.request)
-        });
-         batch.update(customerDocRef, {
             shopConnections: arrayUnion(newConnection)
         });
     }
@@ -106,7 +112,7 @@ export default function RequestsPage() {
     try {
         await batch.commit();
         toast({
-            title: `Request ${newStatus === 'active' ? 'Approved' : 'Rejected'}`,
+            title: `Request ${approve ? 'Approved' : 'Rejected'}`,
             description: `${customer.name}'s request has been updated.`
         });
     } catch(e: any) {
@@ -153,10 +159,10 @@ export default function RequestsPage() {
                             <TableCell>{req.email}</TableCell>
                             <TableCell className="text-right">
                                 <div className="flex gap-2 justify-end">
-                                    <Button size="sm" variant="outline" onClick={() => handleRequest(req, 'active')}>
+                                    <Button size="sm" variant="outline" onClick={() => handleRequest(req, true)}>
                                         <Check className="mr-2 h-4 w-4" /> Approve
                                     </Button>
-                                    <Button size="sm" variant="destructive" onClick={() => handleRequest(req, 'rejected')}>
+                                    <Button size="sm" variant="destructive" onClick={() => handleRequest(req, false)}>
                                          <X className="mr-2 h-4 w-4" /> Deny
                                     </Button>
                                 </div>
