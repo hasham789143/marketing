@@ -21,8 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
+import Link from 'next/link';
 
 interface ShopConnection {
   shopId: string;
@@ -43,6 +44,8 @@ export default function CustomerProductsPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
+  
+  const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   const userDocRef = useMemoFirebase(() => {
@@ -51,28 +54,34 @@ export default function CustomerProductsPage() {
   }, [user, firestore]);
 
   const { data: userData } = useDoc<UserData>(userDocRef);
-
-  const activeShop = useMemo(() => {
-    return userData?.shopConnections?.find(c => c.status === 'active');
-  }, [userData]);
   
-  const shopId = activeShop?.shopId;
+  const activeShops = useMemo(() => {
+    return userData?.shopConnections?.filter(c => c.status === 'active') || [];
+  }, [userData]);
+
+  useEffect(() => {
+    // Set the default selected shop when active shops are loaded
+    if (activeShops.length > 0 && !selectedShopId) {
+      setSelectedShopId(activeShops[0].shopId);
+    }
+  }, [activeShops, selectedShopId]);
+
 
   const categoriesRef = useMemoFirebase(() => {
-    if (!shopId) return null;
-    return collection(firestore, `shops/${shopId}/categories`);
-  }, [firestore, shopId]);
+    if (!selectedShopId) return null;
+    return collection(firestore, `shops/${selectedShopId}/categories`);
+  }, [firestore, selectedShopId]);
 
   const { data: categories } = useCollection<Category>(categoriesRef);
 
   const productsRef = useMemoFirebase(() => {
-    if (!shopId) return null;
-    const baseCollection = collection(firestore, `shops/${shopId}/products`);
+    if (!selectedShopId) return null;
+    const baseCollection = collection(firestore, `shops/${selectedShopId}/products`);
     if (selectedCategory === 'all') {
       return baseCollection;
     }
     return query(baseCollection, where('category', '==', selectedCategory));
-  }, [firestore, shopId, selectedCategory]);
+  }, [firestore, selectedShopId, selectedCategory]);
 
   const { data: products, isLoading } = useCollection<Product>(productsRef);
 
@@ -124,39 +133,64 @@ export default function CustomerProductsPage() {
       <CardHeader>
         <CardTitle>Browse Products</CardTitle>
         <CardDescription>
-          {shopId ? "Here are the products available from your associated shop." : "You must have an active shop connection to browse products."}
+          {activeShops.length > 0 ? "Select a shop to browse its products." : "You are not connected to any shops. Add a shop from your profile to start browsing."}
         </CardDescription>
-        <div className="pt-4">
-            <Label htmlFor="category-filter" className="text-sm font-medium">Filter by Category</Label>
-            <Select
-                value={selectedCategory}
-                onValueChange={setSelectedCategory}
-                disabled={!shopId}
-            >
-                <SelectTrigger id="category-filter" className="w-[280px] mt-1">
-                    <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">All Products</SelectItem>
-                    {categories?.map(category => (
-                        <SelectItem key={category.id} value={category.name}>
-                            {category.name}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
+        <div className="pt-4 grid md:grid-cols-2 gap-4">
+            <div>
+                <Label htmlFor="shop-filter" className="text-sm font-medium">Select a Shop</Label>
+                <Select
+                    value={selectedShopId || ''}
+                    onValueChange={(value) => {
+                        setSelectedShopId(value);
+                        setSelectedCategory('all'); // Reset category filter on shop change
+                    }}
+                    disabled={activeShops.length === 0}
+                >
+                    <SelectTrigger id="shop-filter" className="w-full md:w-[280px] mt-1">
+                        <SelectValue placeholder="Select a shop" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {activeShops.map(shop => (
+                            <SelectItem key={shop.shopId} value={shop.shopId}>
+                                {shop.shopName}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+            <div>
+                <Label htmlFor="category-filter" className="text-sm font-medium">Filter by Category</Label>
+                <Select
+                    value={selectedCategory}
+                    onValueChange={setSelectedCategory}
+                    disabled={!selectedShopId}
+                >
+                    <SelectTrigger id="category-filter" className="w-full md:w-[280px] mt-1">
+                        <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Products</SelectItem>
+                        {categories?.map(category => (
+                            <SelectItem key={category.id} value={category.name}>
+                                {category.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
         </div>
       </CardHeader>
       <CardContent>
         {isLoading && <p>Loading products...</p>}
-        {!isLoading && !shopId && (
-            <p className="text-center text-muted-foreground py-8">
-                Please connect to a shop from your profile to see products.
-            </p>
+        {!isLoading && activeShops.length === 0 && (
+            <div className="text-center text-muted-foreground py-8">
+                <p>You haven't connected to any shops yet.</p>
+                <Button variant="link" asChild><Link href="/customer/profile">Go to Profile to add a shop</Link></Button>
+            </div>
         )}
-        {!isLoading && shopId && !products?.length && (
+        {!isLoading && selectedShopId && !products?.length && (
           <p className="text-center text-muted-foreground py-8">
-            No products found in this category.
+            No products found for this shop or category.
           </p>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
