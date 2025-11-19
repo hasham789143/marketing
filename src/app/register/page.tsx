@@ -118,6 +118,7 @@ export default function RegisterPage() {
         role: role, 
         shopId: values.shopId || null,
         createdAt: serverTimestamp(),
+        imageUrl: '',
       });
       
       toast({
