@@ -1,10 +1,22 @@
+
 import { Timestamp } from 'firebase/firestore';
 
+export type SpecificationValue = {
+  name: string;
+  value: string;
+}
+
 export type ProductVariant = {
+  specifications: SpecificationValue[];
   sku: string;
   price: number;
   stockQty: number;
 };
+
+export type SpecificationType = {
+  name: string;
+  values: string[];
+}
 
 export type Product = {
   id: string;
@@ -14,6 +26,7 @@ export type Product = {
   subcategory?: string;
   description?: string;
   images?: string[];
+  specificationTypes?: SpecificationType[];
   variants?: ProductVariant[];
 };
 
@@ -76,3 +89,5 @@ export const orders: Order[] = [];
 export const staff: Staff[] = [];
 
 export const staffActivityLogs: ActivityLog[] = [];
+
+    

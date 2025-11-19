@@ -1,7 +1,8 @@
+
 'use client';
 
-import { useEffect } from 'react';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { useEffect, useMemo } from 'react';
+import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -36,15 +37,30 @@ import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Trash2, Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Product } from '@/lib/data';
+import { Textarea } from '@/components/ui/textarea';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 
-const variantSchema = z.object({
-    sku: z.string().min(1, { message: 'SKU is required.' }),
-    price: z.coerce.number().min(0, { message: 'Price must be a positive number.' }),
-    stockQty: z.coerce.number().int().min(0, { message: 'Stock must be a positive integer.' }),
-});
 
 const imageSchema = z.object({
   url: z.string().url({ message: 'Please enter a valid URL.' }).min(1, 'URL is required.'),
+});
+
+const specificationValueSchema = z.object({
+  name: z.string(),
+  value: z.string(),
+});
+
+const productVariantSchema = z.object({
+  specifications: z.array(specificationValueSchema),
+  sku: z.string().min(1, "SKU is required."),
+  price: z.coerce.number().min(0, "Price must be a positive number."),
+  stockQty: z.coerce.number().int().min(0, "Stock must be a positive integer."),
+});
+
+const specificationTypeSchema = z.object({
+  name: z.string().min(1, "Specification name is required."),
+  values: z.array(z.string().min(1, "Value cannot be empty.")).min(1, "At least one value is required."),
 });
 
 const formSchema = z.object({
@@ -53,8 +69,12 @@ const formSchema = z.object({
   subcategory: z.string().optional(),
   description: z.string().optional(),
   images: z.array(imageSchema).min(1, 'At least one image URL is required.'),
-  variants: z.array(variantSchema).min(1, 'You must add at least one product variant.'),
+  specificationTypes: z.array(specificationTypeSchema),
+  variants: z.array(productVariantSchema).min(1, "At least one product variant must be configured."),
 });
+
+
+type FormValues = z.infer<typeof formSchema>;
 
 interface UserData {
     role: string;
@@ -65,6 +85,27 @@ interface Category {
   id: string;
   name: string;
 }
+
+// Helper function to generate cartesian product of specifications
+const getVariantCombinations = (specTypes: FormValues['specificationTypes']) => {
+    if (!specTypes || specTypes.length === 0) {
+      return [];
+    }
+    const result: { [key: string]: string }[][] = [];
+    const recurse = (specs: FormValues['specificationTypes'], index: number, current: { [key: string]: string }[]) => {
+      if (index === specs.length) {
+        result.push(current);
+        return;
+      }
+      const spec = specs[index];
+      for (const value of spec.values) {
+        recurse(specs, index + 1, [...current, { name: spec.name, value }]);
+      }
+    };
+    recurse(specTypes, 0, []);
+    return result;
+};
+
 
 export default function EditProductPage() {
   const firestore = useFirestore();
@@ -98,59 +139,58 @@ export default function EditProductPage() {
   
   const { data: categories, isLoading: areCategoriesLoading } = useCollection<Category>(categoriesRef);
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: '',
-      category: '',
-      subcategory: '',
-      description: '',
-      images: [{ url: '' }],
-      variants: [{ sku: '', price: 0, stockQty: 0 }],
-    },
+    defaultValues: {},
   });
   
   useEffect(() => {
     if (productData) {
       form.reset({
-        name: productData.name,
-        category: productData.category,
+        name: productData.name || '',
+        category: productData.category || '',
         subcategory: productData.subcategory || '',
-        description: productData.description,
+        description: productData.description || '',
         images: productData.images?.map(url => ({ url })) || [{ url: '' }],
-        variants: productData.variants,
+        specificationTypes: productData.specificationTypes || [],
+        variants: productData.variants || [],
       });
     }
   }, [productData, form]);
 
-  const { fields: variantFields, append: appendVariant, remove: removeVariant } = useFieldArray({
-    control: form.control,
-    name: "variants"
-  });
+  const { fields: imageFields, append: appendImage, remove: removeImage } = useFieldArray({ control: form.control, name: "images" });
+  const { fields: specTypeFields, append: appendSpecType, remove: removeSpecType } = useFieldArray({ control: form.control, name: "specificationTypes" });
+  const { fields: variantFields, replace: replaceVariants } = useFieldArray({ control: form.control, name: "variants" });
 
-  const { fields: imageFields, append: appendImage, remove: removeImage } = useFieldArray({
-    control: form.control,
-    name: "images"
-  });
+  const watchedSpecTypes = useWatch({ control: form.control, name: 'specificationTypes' });
 
+  // Synchronize variants table with specification types
+  useMemo(() => {
+    if (!form.formState.isDirty) return; // Only run on user interaction
+    const combinations = getVariantCombinations(watchedSpecTypes);
+    const newVariants = combinations.map(combo => {
+      const existingVariant = variantFields.find(v => 
+        JSON.stringify(v.specifications.map(s => s.value)) === JSON.stringify(combo.map(c => c.value))
+      );
+      return {
+        specifications: combo,
+        sku: existingVariant?.sku || '',
+        price: existingVariant?.price ?? 0,
+        stockQty: existingVariant?.stockQty ?? 0
+      };
+    });
+    replaceVariants(newVariants);
+  }, [watchedSpecTypes, replaceVariants, variantFields, form.formState.isDirty]);
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: FormValues) {
     if (!productDocRef) {
         toast({ variant: 'destructive', title: 'Error', description: 'Product reference not found.' });
         return;
     }
 
     try {
-      const totalStock = values.variants.reduce((sum, v) => sum + v.stockQty, 0);
-
       await updateDoc(productDocRef, {
-        name: values.name,
-        category: values.category,
-        subcategory: values.subcategory,
-        description: values.description,
-        variants: values.variants,
-        price: values.variants[0]?.price || 0, // Recalculate main price
-        stockQty: totalStock, // Recalculate total stock
+        ...values,
         images: values.images.map(img => img.url),
         updatedAt: new Date().toISOString(),
       });
@@ -174,264 +214,123 @@ export default function EditProductPage() {
   const isLoading = isUserDataLoading || isProductLoading || areCategoriesLoading;
   
   if (isLoading) {
-    return (
-        <div className="flex w-full items-center justify-center p-8">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-    );
+    return <div className="flex w-full items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   }
-
   if (!isOwner) {
-    return (
-        <div className="w-full">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Access Denied</CardTitle>
-                    <CardDescription>Only shop owners can edit products.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Button onClick={() => router.back()}>Go Back</Button>
-                </CardContent>
-            </Card>
-        </div>
-    );
+    return <Card><CardHeader><CardTitle>Access Denied</CardTitle><CardDescription>Only shop owners can edit products.</CardDescription></CardHeader><CardContent><Button onClick={() => router.back()}>Go Back</Button></CardContent></Card>;
   }
-
   if (!productData) {
-     return (
-        <div className="w-full">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Product Not Found</CardTitle>
-                    <CardDescription>The product you are trying to edit does not exist.</CardDescription>
-                </CardHeader>
-                 <CardContent>
-                    <Button onClick={() => router.push('/dashboard/products')}>Go to Products</Button>
-                </CardContent>
-            </Card>
-        </div>
-    );
+     return <Card><CardHeader><CardTitle>Product Not Found</CardTitle><CardDescription>The product you are trying to edit does not exist.</CardDescription></CardHeader><CardContent><Button onClick={() => router.push('/dashboard/products')}>Go to Products</Button></CardContent></Card>;
   }
 
   return (
     <div className="w-full">
-        <Card>
-            <CardHeader>
-            <CardTitle>Edit Product</CardTitle>
-            <CardDescription>Update the details for your product.</CardDescription>
-            </CardHeader>
-            <CardContent>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Product Name</FormLabel>
-                                <FormControl>
-                                <Input placeholder="e.g., Classic T-Shirt" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                         <FormField
-                            control={form.control}
-                            name="category"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Category</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a category" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {categories?.map((category) => (
-                                            <SelectItem key={category.id} value={category.name}>
-                                                {category.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                    </div>
-                     <FormField
-                        control={form.control}
-                        name="subcategory"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Sub-category (Optional)</FormLabel>
-                            <FormControl>
-                            <Input placeholder="e.g., iPhone, Samsung" {...field} />
-                            </FormControl>
-                             <FormDescription>
-                                A brand or type within the main category.
-                            </FormDescription>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                     <FormField
-                        control={form.control}
-                        name="description"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Description</FormLabel>
-                            <FormControl>
-                            <Input placeholder="Briefly describe the product" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    
-                    <Separator />
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                 <Card>
+                    <CardHeader><CardTitle>Edit Product</CardTitle><CardDescription>Update the details for your product.</CardDescription></CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <FormField name="name" control={form.control} render={({ field }) => (
+                                <FormItem><FormLabel>Product Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField name="category" control={form.control} render={({ field }) => (
+                                <FormItem><FormLabel>Category</FormLabel><Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                    <SelectContent>{categories?.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}</SelectContent>
+                                </Select><FormMessage /></FormItem>
+                            )} />
+                        </div>
+                        <FormField name="subcategory" control={form.control} render={({ field }) => (
+                            <FormItem><FormLabel>Sub-category (Optional)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField name="description" control={form.control} render={({ field }) => (
+                            <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                    </CardContent>
+                </Card>
 
-                     <div>
-                        <h3 className="text-lg font-medium mb-4">Product Images</h3>
-                        <div className="space-y-4">
+                <Card>
+                    <CardHeader><CardTitle>Product Images</CardTitle><CardDescription>Manage image URLs for your product.</CardDescription></CardHeader>
+                    <CardContent className="space-y-4">
                         {imageFields.map((field, index) => (
                             <div key={field.id} className="flex items-end gap-2">
-                                <FormField
-                                    control={form.control}
-                                    name={`images.${index}.url`}
-                                    render={({ field }) => (
-                                        <FormItem className="flex-grow">
-                                            <FormLabel>Image URL {index + 1}</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="https://example.com/image.png" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                 {imageFields.length > 1 && (
-                                    <Button
-                                        type="button"
-                                        variant="destructive"
-                                        size="icon"
-                                        onClick={() => removeImage(index)}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                 )}
+                                <FormField name={`images.${index}.url`} control={form.control} render={({ field }) => (
+                                    <FormItem className="flex-grow"><FormLabel className={cn(index !== 0 && "sr-only")}>Image URL {index + 1}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                )} />
+                                <Button type="button" variant="destructive" size="icon" onClick={() => removeImage(index)}><Trash2 className="h-4 w-4" /></Button>
                             </div>
                         ))}
-                        </div>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="mt-4"
-                            onClick={() => appendImage({ url: '' })}
-                        >
-                             <PlusCircle className="mr-2 h-4 w-4" />
-                            Add Image URL
-                        </Button>
-                         <FormField
-                            control={form.control}
-                            name="images"
-                            render={() => (
-                                <FormItem>
-                                     <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </div>
+                        <Button type="button" variant="outline" size="sm" onClick={() => appendImage({ url: '' })}><PlusCircle className="mr-2 h-4 w-4" />Add Image URL</Button>
+                        <FormField name="images" control={form.control} render={() => <FormItem><FormMessage /></FormItem>} />
+                    </CardContent>
+                </Card>
 
-
-                    <Separator />
-
-                    <div>
-                        <h3 className="text-lg font-medium mb-4">Product Variants</h3>
-                        <div className="space-y-6">
-                        {variantFields.map((field, index) => (
-                            <div key={field.id} className="p-4 border rounded-lg relative space-y-4">
-                                <FormLabel className="font-semibold">Variant {index + 1}</FormLabel>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <FormField
-                                        control={form.control}
-                                        name={`variants.${index}.sku`}
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>SKU</FormLabel>
-                                                <FormControl><Input placeholder="e.g., TSHIRT-BLK-M" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name={`variants.${index}.price`}
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Price</FormLabel>
-                                                <FormControl><Input type="number" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name={`variants.${index}.stockQty`}
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Stock</FormLabel>
-                                                <FormControl><Input type="number" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
+                <Card>
+                    <CardHeader><CardTitle>Product Specifications</CardTitle><CardDescription>Manage specifications and their values.</CardDescription></CardHeader>
+                    <CardContent className="space-y-6">
+                        {specTypeFields.map((specTypeField, specTypeIndex) => (
+                             <div key={specTypeField.id} className="p-4 border rounded-lg space-y-4">
+                                <div className="flex items-end gap-2">
+                                     <FormField name={`specificationTypes.${specTypeIndex}.name`} control={form.control} render={({ field }) => (
+                                        <FormItem className="flex-grow"><FormLabel>Specification Type</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                    )} />
+                                    <Button type="button" variant="destructive" size="icon" onClick={() => removeSpecType(specTypeIndex)}><Trash2 className="h-4 w-4" /></Button>
                                 </div>
-                                {variantFields.length > 1 && (
-                                    <Button
-                                        type="button"
-                                        variant="destructive"
-                                        size="icon"
-                                        className="absolute -top-3 -right-3 h-7 w-7"
-                                        onClick={() => removeVariant(index)}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                )}
+                                <div className="pl-4 space-y-2">
+                                     <FormLabel>Values</FormLabel>
+                                     <useFieldArray control={form.control} name={`specificationTypes.${specTypeIndex}.values`}>
+                                        {({ fields: valueFields, append: appendValue, remove: removeValue }) => (
+                                        <div className="space-y-2">
+                                            {valueFields.map((valueField, valueIndex) => (
+                                                <div key={valueField.id} className="flex items-center gap-2">
+                                                     <FormField name={`specificationTypes.${specTypeIndex}.values.${valueIndex}`} control={form.control} render={({ field }) => (
+                                                        <FormItem className="flex-grow"><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                                    )} />
+                                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeValue(valueIndex)}><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
+                                                </div>
+                                            ))}
+                                            <Button type="button" variant="outline" size="sm" onClick={() => appendValue('')}><PlusCircle className="mr-2 h-4 w-4" />Add Value</Button>
+                                        </div>
+                                        )}
+                                    </useFieldArray>
+                                </div>
                             </div>
                         ))}
-                        </div>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="mt-4"
-                            onClick={() => appendVariant({ sku: '', price: 0, stockQty: 0 })}
-                        >
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Add Variant
-                        </Button>
-                        <FormField
-                            control={form.control}
-                            name="variants"
-                            render={() => (
-                                <FormItem>
-                                     <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </div>
-                    
-                    <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                        {form.formState.isSubmitting ? 'Saving Changes...' : 'Save Changes'}
-                    </Button>
-                </form>
-            </Form>
-            </CardContent>
-        </Card>
+                         <Button type="button" variant="secondary" onClick={() => appendSpecType({ name: '', values: [''] })}><PlusCircle className="mr-2 h-4 w-4" />Add Specification Type</Button>
+                    </CardContent>
+                </Card>
+
+                {variantFields.length > 0 && (
+                    <Card>
+                         <CardHeader><CardTitle>Product Variants</CardTitle><CardDescription>Set the price and stock for each combination.</CardDescription></CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader><TableRow>
+                                    {watchedSpecTypes.map(spec => spec.name && <TableHead key={spec.name}>{spec.name}</TableHead>)}
+                                    <TableHead>Price</TableHead><TableHead>Stock</TableHead><TableHead>SKU</TableHead>
+                                </TableRow></TableHeader>
+                                <TableBody>{variantFields.map((variantField, index) => (
+                                    <TableRow key={variantField.id}>
+                                        {variantField.specifications.map(spec => <TableCell key={spec.value}>{spec.value}</TableCell>)}
+                                        <TableCell><FormField name={`variants.${index}.price`} control={form.control} render={({ field }) => (<FormItem><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} /></TableCell>
+                                        <TableCell><FormField name={`variants.${index}.stockQty`} control={form.control} render={({ field }) => (<FormItem><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} /></TableCell>
+                                        <TableCell><FormField name={`variants.${index}.sku`} control={form.control} render={({ field }) => (<FormItem><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} /></TableCell>
+                                    </TableRow>
+                                ))}</TableBody>
+                            </Table>
+                            <FormField name="variants" control={form.control} render={() => <FormItem><FormMessage className="mt-4" /></FormItem>} />
+                        </CardContent>
+                    </Card>
+                )}
+                
+                <Button type="submit" className="w-full" size="lg" disabled={form.formState.isSubmitting}>
+                    {form.formState.isSubmitting ? 'Saving Changes...' : 'Save Changes'}
+                </Button>
+            </form>
+        </Form>
     </div>
   );
 }
+
+    

@@ -197,9 +197,16 @@
           "type": "string",
           "description": "Sub-category of the product (e.g., brand, type)."
         },
+        "specificationTypes": {
+            "type": "array",
+            "description": "Defines the types of specifications for the product (e.g., Color, Size).",
+            "items": {
+                "$ref": "#/backend/entities/SpecificationType"
+            }
+        },
         "variants": {
           "type": "array",
-          "description": "Array of product variants (e.g., different sizes, colors).",
+          "description": "Array of product variants, each a unique combination of specifications.",
           "items": {
             "$ref": "#/backend/entities/ProductVariant"
           }
@@ -228,11 +235,75 @@
         "name",
         "description",
         "category",
+        "specificationTypes",
         "variants",
         "images",
         "createdAt",
         "updatedAt"
       ]
+    },
+    "SpecificationType": {
+        "title": "SpecificationType",
+        "type": "object",
+        "description": "Defines a type of specification for a product, like 'Color' or 'Size'.",
+        "properties": {
+            "name": {
+                "type": "string",
+                "description": "The name of the specification type (e.g., 'Color')."
+            },
+            "values": {
+                "type": "array",
+                "description": "The possible values for this specification type (e.g., 'Red', 'Blue').",
+                "items": {
+                    "type": "string"
+                }
+            }
+        },
+        "required": ["name", "values"]
+    },
+    "ProductVariant": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ProductVariant",
+      "type": "object",
+      "description": "Represents a specific variant of a product, defined by a combination of specification values.",
+      "properties": {
+        "specifications": {
+            "type": "array",
+            "description": "The combination of specification values that define this variant.",
+            "items": {
+                "$ref": "#/backend/entities/SpecificationValue"
+            }
+        },
+        "sku": {
+          "type": "string",
+          "description": "Stock keeping unit of the product variant."
+        },
+        "price": {
+          "type": "number",
+          "description": "Price of the product variant."
+        },
+        "stockQty": {
+          "type": "number",
+          "description": "Stock quantity of the product variant."
+        }
+      },
+      "required": ["specifications", "sku", "price", "stockQty"]
+    },
+     "SpecificationValue": {
+        "title": "SpecificationValue",
+        "type": "object",
+        "description": "Represents a single key-value pair for a specification, like 'Color: Red'.",
+        "properties": {
+            "name": {
+                "type": "string",
+                "description": "The name of the specification type (e.g., 'Color')."
+            },
+            "value": {
+                "type": "string",
+                "description": "The chosen value for this specification (e.g., 'Red')."
+            }
+        },
+        "required": ["name", "value"]
     },
     "Category": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -259,27 +330,6 @@
         }
       },
       "required": ["categoryId", "shopId", "name", "createdAt"]
-    },
-    "ProductVariant": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ProductVariant",
-      "type": "object",
-      "description": "Represents a specific variant of a product.",
-      "properties": {
-        "sku": {
-          "type": "string",
-          "description": "Stock keeping unit of the product variant."
-        },
-        "price": {
-          "type": "number",
-          "description": "Price of the product variant."
-        },
-        "stockQty": {
-          "type": "number",
-          "description": "Stock quantity of the product variant."
-        }
-      },
-      "required": ["sku", "price", "stockQty"]
     },
     "Order": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -690,3 +740,5 @@
     "reasoning": "The Firestore data structure is designed to support a multi-shop, multi-user application with features like shop registration, product and order management, staff activity logging, and reporting. The design prioritizes authorization independence by denormalizing authorization data to avoid `get()` calls in security rules, and it ensures clear segregation of data for different access needs. \n\nAuthorization Independence is achieved through denormalization. For instance, the `users/{userId}` collection, intended for user data, now includes the `shopConnections` array, referencing the shops to which the user is connected. This duplication of the relationship eliminates the need to perform a `get()` operation to verify shop information on a user document, improving authorization independence.\n\nTo support the QAPs (Rules are not filters) principle, we utilize structural segregation and membership maps:\n\n*   **Shops and Products:** The `/shops/{shopId}` collection stores shop-related data. The `/shops/{shopId}/products/{productId}` subcollection stores products.  This allows shop owners to manage their own products without needing access to other shops' data.\n*   **Users:** The `/users/{userId}` collection houses user data, including the user's `role` and `shopConnections`.\n*   **Connection Requests**: A new top-level collection `connection_requests` is added to manage customer requests to join a shop. This allows shop owners to query for pending requests efficiently.\n*   **Orders:** Orders are structured under the `/shops/{shopId}/orders/{orderId}` path, ensuring that orders are scoped to their respective shops. This facilitates secure `list` operations, as each shop can only access its own order data.\n*   **Audit Logs:** Audit logs are stored in the `/audit_logs/{logId}` collection, capturing user activities across the platform. Each log entry includes the `actorUserId`, `action`, `objectType`, and `objectId`, enabling detailed tracking of user actions and changes made to data.\n\nThis structure enables robust security rules, facilitating the implementation of DBAC (Database-Based Access Control) without relying on custom claims. Furthermore, it aligns with the principles of data clarity and predictability, using explicit state modeling (e.g., `orderStatus` field) and consistent naming conventions."
   }
 }
+
+    

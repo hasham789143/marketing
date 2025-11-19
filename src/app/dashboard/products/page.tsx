@@ -1,3 +1,4 @@
+
 'use client';
 import Image from 'next/image';
 import {
@@ -134,8 +135,11 @@ export default function ProductsPage() {
                   </TableCell>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell className="hidden md:table-cell">
-                    {product.variants?.map(v => (
-                        <Badge key={v.sku} variant="outline" className="mr-1 mb-1">{v.sku}</Badge>
+                     {product.specificationTypes?.map(spec => (
+                        <div key={spec.name}>
+                            <span className="font-semibold">{spec.name}: </span>
+                            <span className="text-muted-foreground">{spec.values.join(', ')}</span>
+                        </div>
                     ))}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
@@ -180,3 +184,5 @@ export default function ProductsPage() {
     </div>
   );
 }
+
+    
