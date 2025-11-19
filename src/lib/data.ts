@@ -16,6 +16,21 @@ export type Product = {
   variants?: ProductVariant[];
 };
 
+export type Shop = {
+    id: string;
+    shopName: string;
+    type: 'online' | 'physical';
+    ownerUserId: string;
+    email: string;
+    phone: string;
+    shopImageUrl: string;
+    deliveryChargeDefault: number;
+    currency: string;
+    taxRate: number;
+    status: 'active' | 'pending' | 'blocked';
+    createdAt: Timestamp;
+};
+
 export type Order = {
   id: string;
   customer: string;

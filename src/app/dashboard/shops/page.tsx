@@ -1,4 +1,3 @@
-
 'use client';
 import {
   Card,
@@ -155,7 +154,9 @@ export default function ShopsPage() {
                               <DropdownMenuItem className="sm:hidden" onClick={() => handleViewProducts(shop.id)}>View Products</DropdownMenuItem>
                               <DropdownMenuItem className="sm:hidden" onClick={() => handleViewOrders(shop.id)}>View Orders</DropdownMenuItem>
                               <DropdownMenuItem className="sm:hidden" onClick={() => handleViewUsers(shop.id)}>View Users</DropdownMenuItem>
-                              <DropdownMenuItem>View Details</DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/dashboard/shops/edit/${shop.id}`}>Edit Details</Link>
+                              </DropdownMenuItem>
                               <DropdownMenuItem>Manage Staff</DropdownMenuItem>
                               <DropdownMenuItem className="text-destructive">Block Shop</DropdownMenuItem>
                             </DropdownMenuContent>
@@ -171,5 +172,3 @@ export default function ShopsPage() {
     </Card>
   );
 }
-
-    
