@@ -160,7 +160,7 @@ export default function EditProductPage() {
   const userDocRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(firestore, 'users', user.uid);
-  }, [firestore, user]);
+  }, [user, firestore]);
 
   const { data: userData, isLoading: isUserDataLoading } = useDoc<UserData>(userDocRef);
   const shopId = userData?.shopId;
@@ -182,7 +182,7 @@ export default function EditProductPage() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {},
+    // No default values here; we set them in useEffect
   });
   
   useEffect(() => {
@@ -207,13 +207,17 @@ export default function EditProductPage() {
 
   // Synchronize variants table with specification types
   useEffect(() => {
-    if (!form.formState.isDirty) return;
+    // Only run this logic if the form is dirty (i.e., user has interacted with it)
+    // This prevents it from running on initial load and wiping out existing variant data.
+    if (!form.formState.isDirty || !watchedSpecTypes) return;
 
     const combinations = getVariantCombinations(watchedSpecTypes);
     const newVariants = combinations.map(combo => {
+      // Try to find an existing variant that matches the new combination
       const existingVariant = variantFields.find(v => 
         JSON.stringify(v.specifications) === JSON.stringify(combo)
       );
+      // If found, keep its data; otherwise, create a new blank entry
       return {
         specifications: combo,
         sku: existingVariant?.sku || '',
@@ -221,11 +225,13 @@ export default function EditProductPage() {
         stockQty: existingVariant?.stockQty ?? 0
       };
     });
-
+    
+    // Only replace if the variants have actually changed to avoid unnecessary re-renders
     if (JSON.stringify(newVariants) !== JSON.stringify(variantFields)) {
         replaceVariants(newVariants);
     }
-  }, [watchedSpecTypes, replaceVariants, variantFields, form.formState.isDirty]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedSpecTypes, replaceVariants, form.formState.isDirty]);
 
 
   async function onSubmit(values: FormValues) {
@@ -267,6 +273,11 @@ export default function EditProductPage() {
   }
   if (!productData) {
      return <Card><CardHeader><CardTitle>Product Not Found</CardTitle><CardDescription>The product you are trying to edit does not exist.</CardDescription></CardHeader><CardContent><Button onClick={() => router.push('/dashboard/products')}>Go to Products</Button></CardContent></Card>;
+  }
+
+  // Only render the form if the data is loaded and the form has been reset
+  if (form.formState.isLoading) {
+      return <div className="flex w-full items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   }
 
   return (
@@ -339,7 +350,7 @@ export default function EditProductPage() {
                         <CardContent>
                             <Table>
                                 <TableHeader><TableRow>
-                                    {watchedSpecTypes.map(spec => spec.name && <TableHead key={spec.name}>{spec.name}</TableHead>)}
+                                    {watchedSpecTypes?.filter(spec => spec.name).map(spec => <TableHead key={spec.name}>{spec.name}</TableHead>)}
                                     <TableHead>Price</TableHead><TableHead>Stock</TableHead><TableHead>SKU</TableHead>
                                 </TableRow></TableHeader>
                                 <TableBody>{variantFields.map((variantField, index) => (
