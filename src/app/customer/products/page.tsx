@@ -300,7 +300,7 @@ export default function CustomerProductsPage() {
        <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Browse Products</h1>
         <p className="text-muted-foreground mt-2">
-          Explore products from online stores and your connected shops.
+          Explore products from online stores {connectedShopsEnabled && "and your connected shops"}.
         </p>
       </div>
 

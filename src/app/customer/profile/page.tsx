@@ -41,6 +41,10 @@ interface ShopData {
     shopName: string;
 }
 
+interface PlatformSettings {
+    connectedShopsEnabled: boolean;
+}
+
 export default function CustomerProfilePage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
@@ -58,6 +62,9 @@ export default function CustomerProfilePage() {
   const [shopError, setShopError] = useState<string | null>(null);
   const [isAddingShop, setIsAddingShop] = useState(false);
 
+  const platformSettingsRef = useMemoFirebase(() => doc(firestore, 'platform_settings', 'features'), [firestore]);
+  const { data: platformSettings, isLoading: areSettingsLoading } = useDoc<PlatformSettings>(platformSettingsRef);
+  const connectedShopsEnabled = platformSettings?.connectedShopsEnabled ?? false;
 
   const userDocRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -169,7 +176,7 @@ export default function CustomerProfilePage() {
     });
   };
   
-  const isLoading = isUserLoading || isProfileLoading;
+  const isLoading = isUserLoading || isProfileLoading || areSettingsLoading;
   const getStatusVariant = (status: string) => {
     switch (status) {
         case 'active': return 'default';
@@ -212,65 +219,65 @@ export default function CustomerProfilePage() {
             </CardFooter>
         </Card>
 
-        <Card>
-            <CardHeader>
-                <CardTitle>Manage Shop Connections</CardTitle>
-                <CardDescription>Request to join new shops or remove existing ones.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="space-y-4">
-                    <Label htmlFor="shop-id-input">Request to Join a New Shop</Label>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                        <Input 
-                            id="shop-id-input"
-                            placeholder="Enter Shop ID"
-                            value={shopIdInput}
-                            onChange={(e) => {
-                                setShopIdInput(e.target.value);
-                                debouncedCheckShopId(e.target.value);
-                            }}
-                        />
-                        <Button onClick={handleAddShopRequest} disabled={!verifiedShop || isAddingShop}>
-                             {isAddingShop ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            Send Request
-                        </Button>
+        {connectedShopsEnabled && (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Manage Shop Connections</CardTitle>
+                    <CardDescription>Request to join new shops or remove existing ones.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        <Label htmlFor="shop-id-input">Request to Join a New Shop</Label>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <Input 
+                                id="shop-id-input"
+                                placeholder="Enter Shop ID"
+                                value={shopIdInput}
+                                onChange={(e) => {
+                                    setShopIdInput(e.target.value);
+                                    debouncedCheckShopId(e.target.value);
+                                }}
+                            />
+                            <Button onClick={handleAddShopRequest} disabled={!verifiedShop || isAddingShop}>
+                                {isAddingShop ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                Send Request
+                            </Button>
+                        </div>
+                        {isCheckingShop && (
+                            <div className="flex items-center text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying...</div>
+                        )}
+                        {shopError && (
+                            <Alert variant="destructive" className="mt-2"><Info className="h-4 w-4"/><AlertDescription>{shopError}</AlertDescription></Alert>
+                        )}
+                        {verifiedShop && (
+                            <Alert className="mt-2"><CheckCircle className="h-4 w-4"/><AlertDescription>Shop Found: <strong>{verifiedShop.name}</strong></AlertDescription></Alert>
+                        )}
                     </div>
-                     {isCheckingShop && (
-                        <div className="flex items-center text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying...</div>
-                    )}
-                    {shopError && (
-                        <Alert variant="destructive" className="mt-2"><Info className="h-4 w-4"/><AlertDescription>{shopError}</AlertDescription></Alert>
-                    )}
-                    {verifiedShop && (
-                        <Alert className="mt-2"><CheckCircle className="h-4 w-4"/><AlertDescription>Shop Found: <strong>{verifiedShop.name}</strong></AlertDescription></Alert>
-                    )}
-                </div>
-                <Separator className="my-6" />
-                <h3 className="text-md font-medium mb-4">Your Shops</h3>
-                <div className="space-y-3">
-                     {userProfile?.shopConnections && userProfile.shopConnections.length > 0 ? (
-                        userProfile.shopConnections.map((conn) => (
-                           <div key={conn.shopId} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 border rounded-lg gap-2">
-                                <div>
-                                    <p className="font-medium">{conn.shopName}</p>
-                                    <p className="text-sm text-muted-foreground">{conn.shopId}</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                     <Badge variant={getStatusVariant(conn.status)}>{conn.status}</Badge>
-                                     <Button variant="ghost" size="icon" onClick={() => handleRemoveShop(conn)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                     </Button>
-                                </div>
-                           </div>
-                        ))
-                    ) : (
-                        <p className="text-sm text-muted-foreground text-center py-4">You are not connected to any shops yet.</p>
-                    )}
-                </div>
-            </CardContent>
-        </Card>
+                    <Separator className="my-6" />
+                    <h3 className="text-md font-medium mb-4">Your Shops</h3>
+                    <div className="space-y-3">
+                        {userProfile?.shopConnections && userProfile.shopConnections.length > 0 ? (
+                            userProfile.shopConnections.map((conn) => (
+                            <div key={conn.shopId} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 border rounded-lg gap-2">
+                                    <div>
+                                        <p className="font-medium">{conn.shopName}</p>
+                                        <p className="text-sm text-muted-foreground">{conn.shopId}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant={getStatusVariant(conn.status)}>{conn.status}</Badge>
+                                        <Button variant="ghost" size="icon" onClick={() => handleRemoveShop(conn)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </div>
+                            </div>
+                            ))
+                        ) : (
+                            <p className="text-sm text-muted-foreground text-center py-4">You are not connected to any shops yet.</p>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+        )}
     </div>
   );
 }
-
-    
