@@ -566,6 +566,18 @@
             "createdAt": { "type": "string", "format": "date-time" }
         },
         "required": ["requestId", "shopId", "customerId", "customerName", "status", "createdAt"]
+    },
+    "PlatformSettings": {
+        "title": "PlatformSettings",
+        "type": "object",
+        "description": "Global settings for the entire platform, managed by admins.",
+        "properties": {
+            "connectedShopsEnabled": {
+                "type": "boolean",
+                "description": "Controls whether the 'Connected Shops' feature is enabled for customers."
+            }
+        },
+        "required": ["connectedShopsEnabled"]
     }
   },
   "auth": {
@@ -741,6 +753,17 @@
             { "name": "productId", "description": "The ID of the product." },
             { "name": "reviewId", "description": "The ID of the review." }
           ]
+        }
+      },
+      {
+        "path": "/platform_settings/{settingId}",
+        "definition": {
+            "entityName": "PlatformSettings",
+            "schema": { "$ref": "#/backend/entities/PlatformSettings" },
+            "description": "Stores global settings for the platform, such as feature flags.",
+            "params": [
+                { "name": "settingId", "description": "The ID of the settings document (e.g., 'features')."}
+            ]
         }
       }
     ],

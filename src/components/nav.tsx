@@ -23,6 +23,7 @@ import {
   ShoppingBag,
   List,
   BellRing,
+  Globe,
 } from 'lucide-react';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
@@ -41,10 +42,15 @@ interface ConnectionRequest {
     shopConnections: ShopConnection[];
 }
 
+interface PlatformSettings {
+    connectedShopsEnabled: boolean;
+}
+
 
 const adminNavItems = [
     { href: '/dashboard/shops', label: 'Shops', icon: Store },
     { href: '/dashboard/users', label: 'Users', icon: Users2 },
+    { href: '/dashboard/settings/platform', label: 'Platform', icon: Globe },
 ];
 
 const shopNavItems = [
@@ -81,6 +87,9 @@ export function Nav() {
   }, [user, firestore]);
 
   const { data: userData, isLoading: isUserDataLoading } = useDoc<{ role: string, shopId?: string }>(userDocRef);
+  
+  const platformSettingsRef = useMemoFirebase(() => doc(firestore, 'platform_settings', 'features'), [firestore]);
+  const { data: platformSettings, isLoading: areSettingsLoading } = useDoc<PlatformSettings>(platformSettingsRef);
 
   const requestsRef = useMemoFirebase(() => {
     if (!userData?.shopId || userData.role !== 'owner') return null;
@@ -100,7 +109,7 @@ export function Nav() {
   }, [usersWithRequests, userData?.shopId]);
 
 
-  const isLoading = isUserLoading || isUserDataLoading;
+  const isLoading = isUserLoading || isUserDataLoading || areSettingsLoading;
 
   if (isLoading) {
       return (
@@ -119,12 +128,17 @@ export function Nav() {
   }
 
   const role = userData?.role;
+  const connectedShopsEnabled = platformSettings?.connectedShopsEnabled ?? false;
 
   let navItems = [];
   let bottomNavItems = [];
 
   if (pathname.startsWith('/customer')) {
-      navItems = customerNavItems;
+      if (connectedShopsEnabled) {
+        navItems = customerNavItems;
+      } else {
+        navItems = customerNavItems.filter(item => item.href === '/customer/products');
+      }
       bottomNavItems = []; // No settings for customers in this sidebar
   } else if (role === 'admin') {
       navItems = [...shopNavItems.slice(0,1), ...adminNavItems, ...shopNavItems.slice(1)];
@@ -134,9 +148,12 @@ export function Nav() {
       bottomNavItems = commonBottomNav;
   } else {
     // Fallback for users with no role or customers visiting dashboard URLs
-    // who might not have a user doc yet
     if (pathname.startsWith('/customer')) {
-        navItems = customerNavItems;
+        if (connectedShopsEnabled) {
+            navItems = customerNavItems;
+        } else {
+            navItems = customerNavItems.filter(item => item.href === '/customer/products');
+        }
         bottomNavItems = [];
     } else {
         return null;

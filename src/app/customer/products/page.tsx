@@ -49,6 +49,10 @@ interface Shop {
     type: 'online' | 'physical';
 }
 
+interface PlatformSettings {
+    connectedShopsEnabled: boolean;
+}
+
 // Define the type for grouped products
 type GroupedProducts = {
   [category: string]: Product[];
@@ -176,11 +180,17 @@ export default function CustomerProductsPage() {
 
   const { data: userData } = useDoc<UserData>(userDocRef);
   
+  const platformSettingsRef = useMemoFirebase(() => doc(firestore, 'platform_settings', 'features'), [firestore]);
+  const { data: platformSettings, isLoading: areSettingsLoading } = useDoc<PlatformSettings>(platformSettingsRef);
+
+  
   const activePhysicalShops = useMemo(() => {
     return userData?.shopConnections?.filter(c => c.status === 'active') || [];
   }, [userData]);
 
   useEffect(() => {
+    if (areSettingsLoading) return; // Don't fetch until we know the settings
+
     const fetchAllProducts = async () => {
       setIsLoading(true);
 
@@ -206,8 +216,8 @@ export default function CustomerProductsPage() {
             setOnlineProducts(allOnlineProducts);
         }
 
-        // Fetch products for connected physical shops
-        if (activePhysicalShops.length > 0) {
+        // Fetch products for connected physical shops only if the feature is enabled
+        if (platformSettings?.connectedShopsEnabled && activePhysicalShops.length > 0) {
             const physicalProductPromises = activePhysicalShops.map(shop => 
                 getDocs(query(collection(firestore, `shops/${shop.shopId}/products`)))
             );
@@ -234,7 +244,10 @@ export default function CustomerProductsPage() {
     };
 
     fetchAllProducts();
-  }, [firestore, activePhysicalShops, toast]);
+  }, [firestore, activePhysicalShops, toast, platformSettings, areSettingsLoading]);
+  
+  const connectedShopsEnabled = platformSettings?.connectedShopsEnabled ?? false;
+  const showTabs = connectedShopsEnabled && activePhysicalShops.length > 0;
 
 
   return (
@@ -246,28 +259,34 @@ export default function CustomerProductsPage() {
         </p>
       </div>
 
-       <Tabs defaultValue="online" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="online">Online Shops</TabsTrigger>
-            <TabsTrigger value="connected">Your Connected Shops</TabsTrigger>
-        </TabsList>
-        <TabsContent value="online" className="mt-6">
-            <p className="text-sm text-muted-foreground mb-4">These products are available from online stores and are visible to all customers.</p>
-            {isLoading ? <p>Loading...</p> : <ProductGrid products={onlineProducts} />}
-        </TabsContent>
-        <TabsContent value="connected" className="mt-6">
-            <p className="text-sm text-muted-foreground mb-4">These products are from your connected physical stores.</p>
-            {isLoading ? <p>Loading...</p> : 
-                (activePhysicalShops.length > 0 ? 
-                    <ProductGrid products={connectedPhysicalProducts} /> :
-                     <div className="text-center text-muted-foreground py-8 rounded-lg border-2 border-dashed">
-                        <p className="font-medium">You are not connected to any physical shops.</p>
-                        <Button variant="link" asChild><Link href="/customer/profile">Go to Profile to add a shop</Link></Button>
-                    </div>
-                )
-            }
-        </TabsContent>
-        </Tabs>
+       {showTabs ? (
+            <Tabs defaultValue="online" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="online">Online Shops</TabsTrigger>
+                    <TabsTrigger value="connected">Your Connected Shops</TabsTrigger>
+                </TabsList>
+                <TabsContent value="online" className="mt-6">
+                    <p className="text-sm text-muted-foreground mb-4">These products are available from online stores and are visible to all customers.</p>
+                    {isLoading ? <p>Loading...</p> : <ProductGrid products={onlineProducts} />}
+                </TabsContent>
+                <TabsContent value="connected" className="mt-6">
+                    <p className="text-sm text-muted-foreground mb-4">These products are from your connected physical stores.</p>
+                    {isLoading ? <p>Loading...</p> : 
+                        (activePhysicalShops.length > 0 ? 
+                            <ProductGrid products={connectedPhysicalProducts} /> :
+                            <div className="text-center text-muted-foreground py-8 rounded-lg border-2 border-dashed">
+                                <p className="font-medium">You are not connected to any physical shops.</p>
+                                <Button variant="link" asChild><Link href="/customer/profile">Go to Profile to add a shop</Link></Button>
+                            </div>
+                        )
+                    }
+                </TabsContent>
+            </Tabs>
+       ) : (
+            <div className="mt-6">
+                 {isLoading ? <p>Loading...</p> : <ProductGrid products={onlineProducts} />}
+            </div>
+       )}
     </div>
   );
 }
