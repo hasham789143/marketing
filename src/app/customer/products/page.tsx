@@ -7,9 +7,9 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Product } from '@/lib/data';
+import { Product, Review } from '@/lib/data';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { addDoc, collection, doc, query, where, getDocs, collectionGroup, writeBatch, runTransaction } from 'firebase/firestore';
+import { addDoc, collection, doc, query, where, getDocs, collectionGroup, writeBatch, runTransaction, getDoc } from 'firebase/firestore';
 import { ShoppingCart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -54,6 +54,7 @@ interface Shop {
 
 interface PlatformSettings {
     connectedShopsEnabled: boolean;
+    featuredProductId?: string;
 }
 
 // Define the type for grouped products
@@ -171,8 +172,8 @@ export default function CustomerProductsPage() {
   
   const [onlineShops, setOnlineShops] = useState<Shop[]>([]);
   const [onlineProducts, setOnlineProducts] = useState<Product[]>([]);
-
   const [connectedPhysicalProducts, setConnectedPhysicalProducts] = useState<Product[]>([]);
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
 
@@ -189,7 +190,6 @@ export default function CustomerProductsPage() {
   const plugin = useRef(
     Autoplay({ delay: 3000, stopOnInteraction: true })
   );
-
   
   const activePhysicalShops = useMemo(() => {
     return userData?.shopConnections?.filter(c => c.status === 'active') || [];
@@ -198,59 +198,105 @@ export default function CustomerProductsPage() {
   useEffect(() => {
     if (areSettingsLoading) return; // Don't fetch until we know the settings
 
-    const fetchAllProducts = async () => {
+    const fetchAllData = async () => {
       setIsLoading(true);
 
       try {
-        // Fetch online shops
+        // --- Step 1: Fetch all online shops and products ---
         const onlineShopsQuery = query(collection(firestore, 'shops'), where('type', '==', 'online'));
         const onlineShopsSnapshot = await getDocs(onlineShopsQuery);
         const fetchedOnlineShops = onlineShopsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Shop));
         setOnlineShops(fetchedOnlineShops);
         
-        // Fetch products for online shops
+        let allOnlineProducts: Product[] = [];
         if (fetchedOnlineShops.length > 0) {
-            const onlineProductPromises = fetchedOnlineShops.map(shop => 
-                getDocs(query(collection(firestore, `shops/${shop.id}/products`)))
-            );
+            const onlineProductPromises = fetchedOnlineShops.map(shop => getDocs(query(collection(firestore, `shops/${shop.id}/products`))));
             const onlineSnapshots = await Promise.all(onlineProductPromises);
-            const allOnlineProducts: Product[] = [];
             onlineSnapshots.forEach(snapshot => {
-                snapshot.docs.forEach((doc: any) => {
-                    allOnlineProducts.push({ id: doc.id, ...doc.data() } as Product);
-                });
+                snapshot.docs.forEach((doc: any) => allOnlineProducts.push({ id: doc.id, ...doc.data() } as Product));
             });
             setOnlineProducts(allOnlineProducts);
         }
 
-        // Fetch products for connected physical shops only if the feature is enabled
+        // --- Step 2: Fetch products for connected physical shops ---
         if (platformSettings?.connectedShopsEnabled && activePhysicalShops.length > 0) {
-            const physicalProductPromises = activePhysicalShops.map(shop => 
-                getDocs(query(collection(firestore, `shops/${shop.shopId}/products`)))
-            );
+            const physicalProductPromises = activePhysicalShops.map(shop => getDocs(query(collection(firestore, `shops/${shop.shopId}/products`))));
             const physicalSnapshots = await Promise.all(physicalProductPromises);
             const allPhysicalProducts: Product[] = [];
             physicalSnapshots.forEach(snapshot => {
-                snapshot.docs.forEach((doc: any) => {
-                    allPhysicalProducts.push({ id: doc.id, ...doc.data() } as Product);
-                });
+                snapshot.docs.forEach((doc: any) => allPhysicalProducts.push({ id: doc.id, ...doc.data() } as Product));
             });
             setConnectedPhysicalProducts(allPhysicalProducts);
         }
+
+        // --- Step 3: Determine Featured Product for Banner ---
+        const allProducts = [...allOnlineProducts, ...connectedPhysicalProducts];
+        let featuredProduct: Product | undefined;
+
+        if (platformSettings?.featuredProductId) {
+             const productDocRef = doc(firestore, 'products', platformSettings.featuredProductId); // Assuming products are in a top-level collection for simplicity here. Adjust if nested.
+             const productDoc = await getDoc(productDocRef);
+             if (productDoc.exists()) {
+                 featuredProduct = { id: productDoc.id, ...productDoc.data() } as Product;
+             }
+        } 
+        
+        if (!featuredProduct) {
+            // Fallback: Find the highest-rated product
+            const reviewsQuery = collectionGroup(firestore, 'reviews');
+            const reviewsSnapshot = await getDocs(reviewsQuery);
+            const reviews = reviewsSnapshot.docs.map(doc => doc.data() as Review);
+
+            if (reviews.length > 0) {
+                const productRatings: { [productId: string]: { total: number; count: number } } = {};
+                reviews.forEach(review => {
+                    if (review.targetType === 'product') {
+                        if (!productRatings[review.targetId]) {
+                            productRatings[review.targetId] = { total: 0, count: 0 };
+                        }
+                        productRatings[review.targetId].total += review.rating;
+                        productRatings[review.targetId].count++;
+                    }
+                });
+                
+                let highestAvg = 0;
+                let topProductId = '';
+                for (const productId in productRatings) {
+                    const avg = productRatings[productId].total / productRatings[productId].count;
+                    if (avg > highestAvg) {
+                        highestAvg = avg;
+                        topProductId = productId;
+                    }
+                }
+
+                if (topProductId) {
+                    featuredProduct = allProducts.find(p => p.id === topProductId);
+                }
+            }
+        }
+
+        // If still no featured product, pick a random one from online products
+        if (!featuredProduct && allOnlineProducts.length > 0) {
+            featuredProduct = allOnlineProducts[Math.floor(Math.random() * allOnlineProducts.length)];
+        }
+
+        if (featuredProduct) {
+            setFeaturedProducts([featuredProduct]);
+        }
         
       } catch (error) {
-        console.error("Error fetching products: ", error);
+        console.error("Error fetching data: ", error);
         toast({
           variant: "destructive",
-          title: "Failed to Fetch Products",
-          description: "There was an error loading products. Please try again."
+          title: "Failed to Load Page",
+          description: "There was an error loading products and banners. Please try again."
         })
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchAllProducts();
+    fetchAllData();
   }, [firestore, activePhysicalShops, toast, platformSettings, areSettingsLoading]);
   
   const connectedShopsEnabled = platformSettings?.connectedShopsEnabled ?? false;
@@ -264,7 +310,8 @@ export default function CustomerProductsPage() {
 
   return (
     <div className="w-full p-4 md:p-6 lg:p-8 space-y-8">
-        <Carousel 
+       {featuredProducts.length > 0 && (
+         <Carousel 
             className="w-full"
             opts={{ loop: true }}
             plugins={[plugin.current]}
@@ -272,28 +319,32 @@ export default function CustomerProductsPage() {
             onMouseLeave={plugin.current.reset}
         >
             <CarouselContent>
-            {onlineProducts.map((product) => (
+            {featuredProducts.map((product) => (
                 <CarouselItem key={product.id}>
-                    <div className="relative w-full h-64 md:h-80 rounded-lg overflow-hidden">
-                         <Image
-                            src={product.images?.[0] || 'https://placehold.co/1200x400'}
-                            alt={product.name}
-                            fill
-                            className="object-cover"
-                            data-ai-hint="product image"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                        <div className="absolute bottom-0 left-0 p-6 text-white">
-                            <p className="font-semibold">{getShopName(product.shopId)}</p>
-                            <h2 className="text-3xl font-bold">{product.name}</h2>
+                    <Link href={`/customer/products/${product.id}`} className="block">
+                        <div className="relative w-full h-64 md:h-80 rounded-lg overflow-hidden group">
+                            <Image
+                                src={product.images?.[0] || 'https://placehold.co/1200x400'}
+                                alt={product.name}
+                                fill
+                                className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                data-ai-hint="product image"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                            <div className="absolute bottom-0 left-0 p-6 text-white">
+                                <p className="font-semibold">{getShopName(product.shopId)}</p>
+                                <h2 className="text-3xl font-bold">{product.name}</h2>
+                            </div>
                         </div>
-                    </div>
+                    </Link>
                 </CarouselItem>
             ))}
             </CarouselContent>
             <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2" />
             <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2" />
         </Carousel>
+       )}
+
 
        <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Browse Products</h1>
@@ -333,3 +384,5 @@ export default function CustomerProductsPage() {
     </div>
   );
 }
+
+    
