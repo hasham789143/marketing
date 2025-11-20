@@ -24,6 +24,7 @@ import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 
 interface ShopConnection {
   shopId: string;
@@ -248,10 +249,40 @@ export default function CustomerProductsPage() {
   
   const connectedShopsEnabled = platformSettings?.connectedShopsEnabled ?? false;
   const showTabs = connectedShopsEnabled && activePhysicalShops.length > 0;
+  
+  const getShopName = (shopId: string) => {
+      const shop = onlineShops.find(s => s.id === shopId);
+      return shop?.shopName || 'Unknown Shop';
+  }
 
 
   return (
-    <div className="w-full p-4 md:p-6 lg:p-8">
+    <div className="w-full p-4 md:p-6 lg:p-8 space-y-8">
+        <Carousel className="w-full" opts={{ loop: true }}>
+            <CarouselContent>
+            {onlineProducts.map((product) => (
+                <CarouselItem key={product.id}>
+                    <div className="relative w-full h-64 md:h-80 rounded-lg overflow-hidden">
+                         <Image
+                            src={product.images?.[0] || 'https://placehold.co/1200x400'}
+                            alt={product.name}
+                            fill
+                            className="object-cover"
+                            data-ai-hint="product image"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                        <div className="absolute bottom-0 left-0 p-6 text-white">
+                            <p className="font-semibold">{getShopName(product.shopId)}</p>
+                            <h2 className="text-3xl font-bold">{product.name}</h2>
+                        </div>
+                    </div>
+                </CarouselItem>
+            ))}
+            </CarouselContent>
+            <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2" />
+            <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2" />
+        </Carousel>
+
        <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Browse Products</h1>
         <p className="text-muted-foreground mt-2">
