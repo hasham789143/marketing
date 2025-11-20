@@ -7,23 +7,14 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Product, Review, Banner, Shop } from '@/lib/data';
+import { Product, Banner, Shop } from '@/lib/data';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { addDoc, collection, doc, query, where, getDocs, collectionGroup, writeBatch, runTransaction, getDoc } from 'firebase/firestore';
-import { ShoppingCart, Eye } from 'lucide-react';
+import { collection, doc, query, where, getDocs } from 'firebase/firestore';
+import { Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import Autoplay from "embla-carousel-autoplay";
 import { errorEmitter, FirestorePermissionError } from '@/firebase';
@@ -59,20 +50,6 @@ type GroupedProducts = {
 
 
 const ProductGrid = ({ products }: { products: Product[] }) => {
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
-  const { toast } = useToast();
-
-  const cartRef = useMemoFirebase(() => {
-    if(!user) return null;
-    return collection(firestore, `users/${user.uid}/cart`);
-  }, [user, firestore]);
-  const { data: cartItems } = useCollection<CartItem>(cartRef);
-
-  const getProductStock = (product: Product) => {
-      // For the grid, we can just show the total stock of all variants.
-      return product.variants?.reduce((acc, v) => acc + v.stockQty, 0) ?? 0;
-  }
 
   const capitalizeFirstLetter = (string: string) => {
     if (!string) return '';
@@ -200,29 +177,32 @@ export default function CustomerProductsPage() {
       try {
         const onlineShopsQuery = query(collection(firestore, 'shops'), where('type', '==', 'online'));
         const onlineShopsSnapshot = await getDocs(onlineShopsQuery).catch(error => {
-          throw new FirestorePermissionError({ path: onlineShopsQuery.path, operation: 'list' });
+          throw new FirestorePermissionError({ path: 'shops', operation: 'list' });
         });
         const fetchedOnlineShops = onlineShopsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Shop));
         setOnlineShops(fetchedOnlineShops);
         
-        let allOnlineProducts: Product[] = [];
         if (fetchedOnlineShops.length > 0) {
-            const onlineProductPromises = fetchedOnlineShops.map(shop => getDocs(query(collection(firestore, `shops/${shop.id}/products`))));
+            const onlineProductPromises = fetchedOnlineShops.map(shop => getDocs(collection(firestore, `shops/${shop.id}/products`)));
             const onlineSnapshots = await Promise.all(onlineProductPromises);
+            const allOnlineProducts: Product[] = [];
             onlineSnapshots.forEach(snapshot => {
-                snapshot.docs.forEach((doc: any) => allOnlineProducts.push({ id: doc.id, ...doc.data() } as Product));
+                snapshot.docs.forEach(doc => allOnlineProducts.push({ id: doc.id, ...doc.data() } as Product));
             });
             setOnlineProducts(allOnlineProducts);
         }
 
-        if (platformSettings?.connectedShopsEnabled && activePhysicalShops.length > 0) {
-            const physicalProductPromises = activePhysicalShops.map(shop => getDocs(query(collection(firestore, `shops/${shop.shopId}/products`))));
-            const physicalSnapshots = await Promise.all(physicalProductPromises);
-            const allPhysicalProducts: Product[] = [];
-            physicalSnapshots.forEach(snapshot => {
-                snapshot.docs.forEach((doc: any) => allPhysicalProducts.push({ id: doc.id, ...doc.data() } as Product));
-            });
-            setConnectedPhysicalProducts(allPhysicalProducts);
+        if (platformSettings?.connectedShopsEnabled) {
+            const physicalShopIds = userData?.shopConnections?.filter(c => c.status === 'active').map(c => c.shopId) || [];
+            if (physicalShopIds.length > 0) {
+                const physicalProductPromises = physicalShopIds.map(shopId => getDocs(collection(firestore, `shops/${shopId}/products`)));
+                const physicalSnapshots = await Promise.all(physicalProductPromises);
+                const allPhysicalProducts: Product[] = [];
+                physicalSnapshots.forEach(snapshot => {
+                    snapshot.docs.forEach(doc => allPhysicalProducts.push({ id: doc.id, ...doc.data() } as Product));
+                });
+                setConnectedPhysicalProducts(allPhysicalProducts);
+            }
         }
         
       } catch (error: any) {
@@ -242,16 +222,10 @@ export default function CustomerProductsPage() {
     };
 
     fetchAllData();
-  }, [firestore, activePhysicalShops, toast, platformSettings, areSettingsLoading]);
+  }, [firestore, areSettingsLoading, platformSettings, userData]);
   
   const connectedShopsEnabled = platformSettings?.connectedShopsEnabled ?? false;
-  const showTabs = connectedShopsEnabled && activePhysicalShops.length > 0;
-  
-  const getShopName = (shopId: string) => {
-      const shop = onlineShops.find(s => s.id === shopId);
-      return shop?.shopName || 'Unknown Shop';
-  }
-
+  const showTabs = connectedShopsEnabled && (userData?.shopConnections?.filter(c => c.status === 'active').length ?? 0) > 0;
 
   return (
     <div className="w-full p-4 md:p-6 lg:p-8 space-y-8">
@@ -335,5 +309,3 @@ export default function CustomerProductsPage() {
     </div>
   );
 }
-
-    
