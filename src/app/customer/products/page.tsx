@@ -193,7 +193,7 @@ export default function CustomerProductsPage() {
   }, [userData]);
 
   useEffect(() => {
-    if (areSettingsLoading || areBannersLoading) return;
+    if (areSettingsLoading) return;
 
     const fetchAllData = async () => {
       setIsLoading(true);
@@ -242,7 +242,7 @@ export default function CustomerProductsPage() {
     };
 
     fetchAllData();
-  }, [firestore, activePhysicalShops, toast, platformSettings, areSettingsLoading, areBannersLoading]);
+  }, [firestore, activePhysicalShops, toast, platformSettings, areSettingsLoading]);
   
   const connectedShopsEnabled = platformSettings?.connectedShopsEnabled ?? false;
   const showTabs = connectedShopsEnabled && activePhysicalShops.length > 0;
@@ -335,3 +335,5 @@ export default function CustomerProductsPage() {
     </div>
   );
 }
+
+    
