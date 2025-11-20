@@ -29,14 +29,14 @@ export default function Home() {
               router.push('/dashboard');
               break;
             case 'customer':
-              router.push('/customer');
+              router.push('/customer/products');
               break;
             default:
               router.push('/login'); // Fallback for users with no role
           }
         } else {
           // If no user document, assume customer
-          router.push('/customer');
+          router.push('/customer/products');
         }
       };
       checkUserRoleAndRedirect();

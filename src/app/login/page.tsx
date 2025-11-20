@@ -92,7 +92,7 @@ export default function LoginPage() {
               router.push('/dashboard');
               break;
             case 'customer':
-              router.push('/customer');
+              router.push('/customer/products');
               break;
             default:
               router.push('/'); // Fallback to home page
@@ -103,7 +103,7 @@ export default function LoginPage() {
                 title: 'Login Successful',
                 description: `Welcome back!`,
             });
-            router.push('/customer');
+            router.push('/customer/products');
         }
       }
     } catch (error: any) {

@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Product, Review, Banner } from '@/lib/data';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { addDoc, collection, doc, query, where, getDocs, collectionGroup, writeBatch, runTransaction, getDoc } from 'firebase/firestore';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   Select,
@@ -269,22 +269,28 @@ export default function CustomerProductsPage() {
             <CarouselContent>
             {activeBanners.map((banner) => (
                 <CarouselItem key={banner.id}>
-                    <Link href={banner.targetUrl} className="block">
-                        <div className="relative w-full h-64 md:h-80 rounded-lg overflow-hidden group">
-                            <Image
-                                src={banner.imageUrl}
-                                alt={banner.title}
-                                fill
-                                className="object-cover transition-transform duration-300 group-hover:scale-105"
-                                data-ai-hint="promotional banner"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                            <div className="absolute bottom-0 left-0 p-6 text-white">
+                    <div className="relative w-full h-64 md:h-80 rounded-lg overflow-hidden group">
+                        <Image
+                            src={banner.imageUrl}
+                            alt={banner.title}
+                            fill
+                            className="object-cover transition-transform duration-300 group-hover:scale-105"
+                            data-ai-hint="promotional banner"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                        <div className="absolute bottom-0 left-0 p-6 text-white w-full flex justify-between items-end">
+                            <div>
                                 <h2 className="text-3xl font-bold">{banner.title}</h2>
                                 {banner.subtitle && <p className="text-lg">{banner.subtitle}</p>}
                             </div>
+                            <Button asChild>
+                                <Link href={banner.targetUrl}>
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    View Product
+                                </Link>
+                            </Button>
                         </div>
-                    </Link>
+                    </div>
                 </CarouselItem>
             ))}
             </CarouselContent>
