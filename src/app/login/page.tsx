@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -21,7 +22,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useAuth, useFirestore } from '@/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -58,6 +59,23 @@ export default function LoginPage() {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           const role = userData.role;
+
+          // For owners or staff, check if their shop is blocked
+          if ((role === 'owner' || role === 'staff') && userData.shopId) {
+            const shopDocRef = doc(firestore, 'shops', userData.shopId);
+            const shopDoc = await getDoc(shopDocRef);
+
+            if (shopDoc.exists() && shopDoc.data().status === 'blocked') {
+              // If the shop is blocked, sign the user out and show an error.
+              await signOut(auth);
+              toast({
+                variant: 'destructive',
+                title: 'Access Denied',
+                description: 'Your shop has been blocked. Please contact support.',
+              });
+              return; // Stop the login process
+            }
+          }
 
           toast({
             title: 'Login Successful',
