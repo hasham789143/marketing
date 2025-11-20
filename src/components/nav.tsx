@@ -128,17 +128,12 @@ export function Nav() {
   }
 
   const role = userData?.role;
-  const connectedShopsEnabled = platformSettings?.connectedShopsEnabled ?? false;
 
   let navItems = [];
   let bottomNavItems = [];
 
   if (pathname.startsWith('/customer')) {
-      if (connectedShopsEnabled) {
-        navItems = customerNavItems;
-      } else {
-        navItems = customerNavItems.filter(item => item.href === '/customer/products');
-      }
+      navItems = customerNavItems;
       bottomNavItems = []; // No settings for customers in this sidebar
   } else if (role === 'admin') {
       navItems = [...shopNavItems.slice(0,1), ...adminNavItems, ...shopNavItems.slice(1)];
@@ -149,11 +144,7 @@ export function Nav() {
   } else {
     // Fallback for users with no role or customers visiting dashboard URLs
     if (pathname.startsWith('/customer')) {
-        if (connectedShopsEnabled) {
-            navItems = customerNavItems;
-        } else {
-            navItems = customerNavItems.filter(item => item.href === '/customer/products');
-        }
+        navItems = customerNavItems;
         bottomNavItems = [];
     } else {
         return null;
