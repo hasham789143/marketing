@@ -19,12 +19,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import Autoplay from "embla-carousel-autoplay";
+
 
 interface ShopConnection {
   shopId: string;
@@ -184,6 +186,10 @@ export default function CustomerProductsPage() {
   const platformSettingsRef = useMemoFirebase(() => doc(firestore, 'platform_settings', 'features'), [firestore]);
   const { data: platformSettings, isLoading: areSettingsLoading } = useDoc<PlatformSettings>(platformSettingsRef);
 
+  const plugin = useRef(
+    Autoplay({ delay: 3000, stopOnInteraction: true })
+  );
+
   
   const activePhysicalShops = useMemo(() => {
     return userData?.shopConnections?.filter(c => c.status === 'active') || [];
@@ -258,7 +264,13 @@ export default function CustomerProductsPage() {
 
   return (
     <div className="w-full p-4 md:p-6 lg:p-8 space-y-8">
-        <Carousel className="w-full" opts={{ loop: true }}>
+        <Carousel 
+            className="w-full"
+            opts={{ loop: true }}
+            plugins={[plugin.current]}
+            onMouseEnter={plugin.current.stop}
+            onMouseLeave={plugin.current.reset}
+        >
             <CarouselContent>
             {onlineProducts.map((product) => (
                 <CarouselItem key={product.id}>
