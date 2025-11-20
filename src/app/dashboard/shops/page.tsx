@@ -25,16 +25,17 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Eye, MoreHorizontal, PlusCircle, Users } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, Timestamp } from 'firebase/firestore';
+import { collection, Timestamp, doc, updateDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
 
 interface Shop {
     id: string;
     shopName: string;
     ownerUserId: string;
-    status: string;
+    status: 'active' | 'pending' | 'blocked';
     phone: string;
     createdAt: Timestamp;
     type: 'online' | 'physical';
@@ -43,6 +44,7 @@ interface Shop {
 export default function ShopsPage() {
   const firestore = useFirestore();
   const router = useRouter();
+  const { toast } = useToast();
   const shopsRef = useMemoFirebase(() => collection(firestore, 'shops'), [firestore]);
   const { data: shops, isLoading } = useCollection<Shop>(shopsRef);
 
@@ -80,6 +82,24 @@ export default function ShopsPage() {
 
   const handleViewUsers = (shopId: string) => {
     router.push(`/dashboard/users?shopId=${shopId}`);
+  };
+  
+  const handleUpdateStatus = async (shopId: string, currentStatus: Shop['status']) => {
+    const newStatus = currentStatus === 'active' ? 'blocked' : 'active';
+    const shopDocRef = doc(firestore, 'shops', shopId);
+    try {
+        await updateDoc(shopDocRef, { status: newStatus });
+        toast({
+            title: "Shop Status Updated",
+            description: `Shop has been ${newStatus}.`,
+        });
+    } catch (e: any) {
+        toast({
+            variant: "destructive",
+            title: "Update Failed",
+            description: e.message,
+        });
+    }
   };
 
 
@@ -158,8 +178,12 @@ export default function ShopsPage() {
                               <DropdownMenuItem asChild>
                                 <Link href={`/dashboard/shops/edit/${shop.id}`}>Edit Details</Link>
                               </DropdownMenuItem>
-                              <DropdownMenuItem>Manage Staff</DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">Block Shop</DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleUpdateStatus(shop.id, shop.status)}
+                                className={shop.status === 'active' ? "text-destructive" : ""}
+                              >
+                                {shop.status === 'active' ? 'Block Shop' : 'Activate Shop'}
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                       </div>
