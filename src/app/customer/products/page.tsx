@@ -168,8 +168,6 @@ export default function CustomerProductsPage() {
   const [onlineShops, setOnlineShops] = useState<Shop[]>([]);
   const [onlineProducts, setOnlineProducts] = useState<Product[]>([]);
   const [connectedPhysicalProducts, setConnectedPhysicalProducts] = useState<Product[]>([]);
-  const [featuredProduct, setFeaturedProduct] = useState<Product | null>(null);
-  const [topRatedProduct, setTopRatedProduct] = useState<Product | null>(null);
   
   const [isLoading, setIsLoading] = useState(true);
 
@@ -195,7 +193,7 @@ export default function CustomerProductsPage() {
   }, [userData]);
 
   useEffect(() => {
-    if (areSettingsLoading) return;
+    if (areSettingsLoading || areBannersLoading) return;
 
     const fetchAllData = async () => {
       setIsLoading(true);
@@ -244,7 +242,7 @@ export default function CustomerProductsPage() {
     };
 
     fetchAllData();
-  }, [firestore, activePhysicalShops, toast, platformSettings, areSettingsLoading]);
+  }, [firestore, activePhysicalShops, toast, platformSettings, areSettingsLoading, areBannersLoading]);
   
   const connectedShopsEnabled = platformSettings?.connectedShopsEnabled ?? false;
   const showTabs = connectedShopsEnabled && activePhysicalShops.length > 0;
@@ -337,5 +335,3 @@ export default function CustomerProductsPage() {
     </div>
   );
 }
-
-    

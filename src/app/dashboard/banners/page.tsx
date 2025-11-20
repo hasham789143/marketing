@@ -117,37 +117,18 @@ export default function BannersPage() {
   const bannersRef = useMemoFirebase(() => collection(firestore, 'banners'), [firestore]);
   const { data: banners, isLoading: areBannersLoading } = useCollection<Banner>(bannersRef);
 
-  // When a banner is marked as active, all others should be deactivated.
-  const handleActivation = async (values: BannerFormValues, bannerId?: string) => {
-    const batch = writeBatch(firestore);
-    
-    // Deactivate all other banners if this one is being activated
-    if (values.isActive && banners) {
-        banners.forEach(banner => {
-            if (banner.id !== bannerId) {
-                 const bannerRef = doc(firestore, 'banners', banner.id);
-                 batch.update(bannerRef, { isActive: false });
-            }
-        });
-    }
-
-    if (bannerId) { // Updating existing banner
-        const bannerRef = doc(firestore, 'banners', bannerId);
-        batch.update(bannerRef, values);
-    } else { // Creating new banner
-        const newBannerId = uuidv4();
-        const newBannerRef = doc(firestore, 'banners', newBannerId);
-        batch.set(newBannerRef, { ...values, id: newBannerId, createdAt: serverTimestamp() });
-    }
-
-    await batch.commit();
-  }
-
   async function handleFormSubmit(values: BannerFormValues) {
     if (!isAdmin) return;
     setIsSubmitting(true);
     try {
-      await handleActivation(values, editingBanner?.id);
+      if (editingBanner) {
+        const bannerRef = doc(firestore, 'banners', editingBanner.id);
+        await updateDoc(bannerRef, values);
+      } else {
+        const newBannerId = uuidv4();
+        const newBannerRef = doc(firestore, 'banners', newBannerId);
+        await setDoc(newBannerRef, { ...values, id: newBannerId, createdAt: serverTimestamp() });
+      }
       toast({ title: editingBanner ? 'Banner Updated' : 'Banner Added' });
       setIsDialogOpen(false);
       setEditingBanner(undefined);
@@ -250,5 +231,3 @@ export default function BannersPage() {
     </div>
   );
 }
-
-    
