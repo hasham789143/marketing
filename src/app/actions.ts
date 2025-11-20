@@ -3,7 +3,7 @@
 
 import { getStaffActivityInsights } from '@/ai/flows/staff-activity-insights';
 import { collection, getDocs } from 'firebase/firestore';
-import { initializeFirebase } from '@/firebase';
+import { initializeFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 
 export async function generateReportAction(
   prevState: {
@@ -16,9 +16,19 @@ export async function generateReportAction(
   try {
     const { firestore } = initializeFirebase();
     const logsRef = collection(firestore, 'audit_logs');
-    const logsSnapshot = await getDocs(logsRef);
-    const staffActivityLogs = logsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+    
+    // This `getDocs` call can fail due to permissions.
+    const logsSnapshot = await getDocs(logsRef).catch(error => {
+      // Manually create and throw a contextual error that can be caught by the server action boundary.
+      // Note: We can't use the global emitter here as this is a server-side action.
+      // We'll throw an error that can be caught and displayed to the user.
+      throw new FirestorePermissionError({
+        path: logsRef.path,
+        operation: 'list'
+      });
+    });
 
+    const staffActivityLogs = logsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
     const logs = JSON.stringify(staffActivityLogs.map(log => ({ ...log, timestamp: undefined })));
     
     const result = await getStaffActivityInsights({
@@ -35,3 +45,5 @@ export async function generateReportAction(
     return { report: null, error: `Failed to generate report: ${errorMessage}`, timestamp: Date.now() };
   }
 }
+
+    

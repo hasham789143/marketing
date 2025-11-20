@@ -1,7 +1,8 @@
+
 'use client';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, useFirestore } from '@/firebase';
+import { useUser, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
 export default function Home() {
@@ -17,26 +18,33 @@ export default function Home() {
     if (user) {
       const checkUserRoleAndRedirect = async () => {
         const userDocRef = doc(firestore, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          const role = userDoc.data().role;
-          switch (role) {
-            case 'admin':
-              router.push('/dashboard/shops');
-              break;
-            case 'owner':
-            case 'staff':
-              router.push('/dashboard');
-              break;
-            case 'customer':
+        try {
+            const userDoc = await getDoc(userDocRef);
+            if (userDoc.exists()) {
+              const role = userDoc.data().role;
+              switch (role) {
+                case 'admin':
+                  router.push('/dashboard/shops');
+                  break;
+                case 'owner':
+                case 'staff':
+                  router.push('/dashboard');
+                  break;
+                case 'customer':
+                  router.push('/customer/products');
+                  break;
+                default:
+                  router.push('/login'); // Fallback for users with no role
+              }
+            } else {
+              // If no user document, assume customer
               router.push('/customer/products');
-              break;
-            default:
-              router.push('/login'); // Fallback for users with no role
-          }
-        } else {
-          // If no user document, assume customer
-          router.push('/customer/products');
+            }
+        } catch (error: any) {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: userDocRef.path,
+                operation: 'get'
+            }));
         }
       };
       checkUserRoleAndRedirect();
@@ -53,3 +61,5 @@ export default function Home() {
     </div>
   );
 }
+
+    

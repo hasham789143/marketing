@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Product, Review, Banner } from '@/lib/data';
+import { Product, Review, Banner, Shop } from '@/lib/data';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { addDoc, collection, doc, query, where, getDocs, collectionGroup, writeBatch, runTransaction, getDoc } from 'firebase/firestore';
 import { ShoppingCart, Eye } from 'lucide-react';
@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import Autoplay from "embla-carousel-autoplay";
+import { errorEmitter, FirestorePermissionError } from '@/firebase';
 
 
 interface ShopConnection {
@@ -44,12 +45,6 @@ interface CartItem {
     shopId: string;
     quantity: number;
     sku: string;
-}
-
-interface Shop {
-    id: string;
-    shopName: string;
-    type: 'online' | 'physical';
 }
 
 interface PlatformSettings {
@@ -173,6 +168,8 @@ export default function CustomerProductsPage() {
   const [onlineShops, setOnlineShops] = useState<Shop[]>([]);
   const [onlineProducts, setOnlineProducts] = useState<Product[]>([]);
   const [connectedPhysicalProducts, setConnectedPhysicalProducts] = useState<Product[]>([]);
+  const [featuredProduct, setFeaturedProduct] = useState<Product | null>(null);
+  const [topRatedProduct, setTopRatedProduct] = useState<Product | null>(null);
   
   const [isLoading, setIsLoading] = useState(true);
 
@@ -185,10 +182,9 @@ export default function CustomerProductsPage() {
   
   const platformSettingsRef = useMemoFirebase(() => doc(firestore, 'platform_settings', 'features'), [firestore]);
   const { data: platformSettings, isLoading: areSettingsLoading } = useDoc<PlatformSettings>(platformSettingsRef);
-
+  
   const bannersRef = useMemoFirebase(() => query(collection(firestore, 'banners'), where('isActive', '==', true)), [firestore]);
   const { data: activeBanners, isLoading: areBannersLoading } = useCollection<Banner>(bannersRef);
-
 
   const plugin = useRef(
     Autoplay({ delay: 3000, stopOnInteraction: true })
@@ -199,15 +195,15 @@ export default function CustomerProductsPage() {
   }, [userData]);
 
   useEffect(() => {
-    if (areSettingsLoading) return; // Don't fetch until we know the settings
+    if (areSettingsLoading) return;
 
     const fetchAllData = async () => {
       setIsLoading(true);
-
       try {
-        // --- Step 1: Fetch all online shops and products ---
         const onlineShopsQuery = query(collection(firestore, 'shops'), where('type', '==', 'online'));
-        const onlineShopsSnapshot = await getDocs(onlineShopsQuery);
+        const onlineShopsSnapshot = await getDocs(onlineShopsQuery).catch(error => {
+          throw new FirestorePermissionError({ path: onlineShopsQuery.path, operation: 'list' });
+        });
         const fetchedOnlineShops = onlineShopsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Shop));
         setOnlineShops(fetchedOnlineShops);
         
@@ -221,7 +217,6 @@ export default function CustomerProductsPage() {
             setOnlineProducts(allOnlineProducts);
         }
 
-        // --- Step 2: Fetch products for connected physical shops ---
         if (platformSettings?.connectedShopsEnabled && activePhysicalShops.length > 0) {
             const physicalProductPromises = activePhysicalShops.map(shop => getDocs(query(collection(firestore, `shops/${shop.shopId}/products`))));
             const physicalSnapshots = await Promise.all(physicalProductPromises);
@@ -232,13 +227,17 @@ export default function CustomerProductsPage() {
             setConnectedPhysicalProducts(allPhysicalProducts);
         }
         
-      } catch (error) {
-        console.error("Error fetching data: ", error);
-        toast({
-          variant: "destructive",
-          title: "Failed to Load Page",
-          description: "There was an error loading products and banners. Please try again."
-        })
+      } catch (error: any) {
+        if (error instanceof FirestorePermissionError) {
+          errorEmitter.emit('permission-error', error);
+        } else {
+            console.error("Error fetching data: ", error);
+            toast({
+              variant: "destructive",
+              title: "Failed to Load Page",
+              description: "There was an error loading products. Please try again."
+            })
+        }
       } finally {
         setIsLoading(false);
       }
@@ -338,3 +337,5 @@ export default function CustomerProductsPage() {
     </div>
   );
 }
+
+    

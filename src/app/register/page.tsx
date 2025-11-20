@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -20,7 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuth, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { arrayUnion, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
@@ -83,7 +84,8 @@ export default function RegisterPage() {
                 form.setValue('shopId', ''); // Clear form value if invalid
             }
         } catch (error) {
-            setShopError('Failed to verify Shop ID.');
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `shops/${id}`, operation: 'get' }));
+            setShopError('Failed to verify Shop ID due to permissions.');
             form.setValue('shopId', ''); // Clear form value on error
         } finally {
             setIsCheckingShop(false);
@@ -124,7 +126,9 @@ export default function RegisterPage() {
       };
 
       const userDocRef = doc(firestore, "users", user.uid);
-      await setDoc(userDocRef, newUserDocData);
+      await setDoc(userDocRef, newUserDocData).catch(error => {
+        throw new FirestorePermissionError({ path: userDocRef.path, operation: 'create', requestResourceData: newUserDocData });
+      });
       
       // If a valid shop was entered, create the pending connection request
       if (verifiedShop) {
@@ -136,7 +140,9 @@ export default function RegisterPage() {
         await setDoc(userDocRef, {
             shopConnections: arrayUnion(newConnection),
             shopConnectionIds: arrayUnion(verifiedShop.id)
-        }, { merge: true });
+        }, { merge: true }).catch(error => {
+            throw new FirestorePermissionError({ path: userDocRef.path, operation: 'update', requestResourceData: { shopConnections: '...', shopConnectionIds: '...' }});
+        });
       }
       
       toast({
@@ -146,11 +152,15 @@ export default function RegisterPage() {
 
       router.push('/login');
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Registration Failed',
-        description: error.message,
-      });
+        if (error instanceof FirestorePermissionError) {
+            errorEmitter.emit('permission-error', error);
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Registration Failed',
+                description: error.message,
+            });
+        }
     }
   }
 
@@ -253,3 +263,5 @@ export default function RegisterPage() {
     </div>
   );
 }
+
+    

@@ -25,6 +25,7 @@ import { Progress } from '@/components/ui/progress';
 import { Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
+import { errorEmitter, FirestorePermissionError } from '@/firebase';
 
 // Helper to check if two specification arrays are identical
 const areSpecificationsEqual = (specs1: SpecificationValue[], specs2: SpecificationValue[]) => {
@@ -72,15 +73,29 @@ export default function ProductDetailPage() {
         if (!firestore || !productId) return;
         
         const allShopsQuery = collection(firestore, 'shops');
-        const querySnapshot = await getDocs(allShopsQuery);
-        for(const shopDoc of querySnapshot.docs) {
-            const productDocRef = doc(firestore, `shops/${shopDoc.id}/products`, productId);
-            const productSnapshot = await getDoc(productDocRef);
-            if (productSnapshot.exists()) {
-                setShopId(shopDoc.id);
-                return;
-            }
-        }
+        getDocs(allShopsQuery)
+            .then(async (querySnapshot) => {
+                for(const shopDoc of querySnapshot.docs) {
+                    const productDocRef = doc(firestore, `shops/${shopDoc.id}/products`, productId);
+                    try {
+                        const productSnapshot = await getDoc(productDocRef);
+                        if (productSnapshot.exists()) {
+                            setShopId(shopDoc.id);
+                            return;
+                        }
+                    } catch (error) {
+                         // This is likely a permission error on a subcollection, which is harder to debug
+                         // For now, we just log it and continue, but a better strategy might be needed.
+                         console.warn(`Could not check for product in shop ${shopDoc.id} due to error.`, error);
+                    }
+                }
+            })
+            .catch(error => {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({
+                    path: allShopsQuery.path,
+                    operation: 'list'
+                }));
+            });
     }
     getShopId();
   }, [firestore, productId]);
@@ -130,25 +145,28 @@ export default function ProductDetailPage() {
     if (!reviewsRef) return;
     
     setIsSubmittingReview(true);
-    try {
-        await addDoc(reviewsRef, {
-            reviewId: '',
-            reviewerId: user.uid,
-            reviewerName: user.displayName || 'Anonymous',
-            targetType: 'product',
-            targetId: productId,
-            rating: rating,
-            comment: comment,
-            createdAt: serverTimestamp()
-        });
+    const reviewData = {
+        reviewerId: user.uid,
+        reviewerName: user.displayName || 'Anonymous',
+        targetType: 'product',
+        targetId: productId,
+        rating: rating,
+        comment: comment,
+        createdAt: serverTimestamp()
+    };
+    addDoc(reviewsRef, reviewData).then(() => {
         toast({ title: 'Review Submitted!', description: 'Thank you for your feedback.' });
         setRating(0);
         setComment('');
-    } catch(error: any) {
-        toast({ variant: 'destructive', title: 'Failed to submit review', description: error.message });
-    } finally {
+    }).catch(error => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: reviewsRef.path,
+            operation: 'create',
+            requestResourceData: reviewData
+        }));
+    }).finally(() => {
         setIsSubmittingReview(false);
-    }
+    });
   };
   
   const { averageRating, ratingDistribution } = useMemo(() => {

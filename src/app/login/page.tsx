@@ -21,7 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuth, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
@@ -54,56 +54,70 @@ export default function LoginPage() {
 
       if (user) {
         const userDocRef = doc(firestore, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
+        
+        try {
+            const userDoc = await getDoc(userDocRef);
 
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          const role = userData.role;
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              const role = userData.role;
 
-          // For owners or staff, check if their shop is blocked
-          if ((role === 'owner' || role === 'staff') && userData.shopId) {
-            const shopDocRef = doc(firestore, 'shops', userData.shopId);
-            const shopDoc = await getDoc(shopDocRef);
+              // For owners or staff, check if their shop is blocked
+              if ((role === 'owner' || role === 'staff') && userData.shopId) {
+                const shopDocRef = doc(firestore, 'shops', userData.shopId);
+                const shopDoc = await getDoc(shopDocRef).catch(error => {
+                    throw new FirestorePermissionError({ path: shopDocRef.path, operation: 'get' });
+                });
 
-            if (shopDoc.exists() && shopDoc.data().status === 'blocked') {
-              // If the shop is blocked, sign the user out and show an error.
-              await signOut(auth);
+                if (shopDoc.exists() && shopDoc.data().status === 'blocked') {
+                  // If the shop is blocked, sign the user out and show an error.
+                  await signOut(auth);
+                  toast({
+                    variant: 'destructive',
+                    title: 'Access Denied',
+                    description: 'Your shop has been blocked. Please contact support.',
+                  });
+                  return; // Stop the login process
+                }
+              }
+
               toast({
-                variant: 'destructive',
-                title: 'Access Denied',
-                description: 'Your shop has been blocked. Please contact support.',
-              });
-              return; // Stop the login process
-            }
-          }
-
-          toast({
-            title: 'Login Successful',
-            description: `Welcome back! You are logged in as: ${role}.`,
-          });
-          
-          // Redirect based on role
-          switch (role) {
-            case 'admin':
-              router.push('/dashboard/shops');
-              break;
-            case 'owner':
-            case 'staff':
-              router.push('/dashboard');
-              break;
-            case 'customer':
-              router.push('/customer/products');
-              break;
-            default:
-              router.push('/'); // Fallback to home page
-          }
-        } else {
-            // If user doc doesn't exist, treat as a customer
-            toast({
                 title: 'Login Successful',
-                description: `Welcome back!`,
-            });
-            router.push('/customer/products');
+                description: `Welcome back! You are logged in as: ${role}.`,
+              });
+              
+              // Redirect based on role
+              switch (role) {
+                case 'admin':
+                  router.push('/dashboard/shops');
+                  break;
+                case 'owner':
+                case 'staff':
+                  router.push('/dashboard');
+                  break;
+                case 'customer':
+                  router.push('/customer/products');
+                  break;
+                default:
+                  router.push('/'); // Fallback to home page
+              }
+            } else {
+                // If user doc doesn't exist, treat as a customer
+                toast({
+                    title: 'Login Successful',
+                    description: `Welcome back!`,
+                });
+                router.push('/customer/products');
+            }
+
+        } catch (error: any) {
+             if (error instanceof FirestorePermissionError) {
+                errorEmitter.emit('permission-error', error);
+             } else {
+                 errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userDocRef.path, operation: 'get'}));
+             }
+             // Also sign user out if their user doc is inaccessible
+             await signOut(auth);
         }
       }
     } catch (error: any) {
@@ -169,3 +183,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    

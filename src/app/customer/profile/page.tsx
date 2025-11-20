@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirestore, useUser, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { arrayRemove, arrayUnion, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -89,6 +89,7 @@ export default function CustomerProfilePage() {
                 setShopError('No shop found with this ID.');
             }
         } catch (error) {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `shops/${id}`, operation: 'get' }));
             setShopError('Failed to verify Shop ID.');
         } finally {
             setIsCheckingShop(false);
@@ -109,32 +110,38 @@ export default function CustomerProfilePage() {
       status: 'pending',
     };
     
-    try {
-        await updateDoc(userDocRef, {
-            shopConnections: arrayUnion(newConnection),
-            shopConnectionIds: arrayUnion(verifiedShop.id) // Add to the queryable array
-        });
+    updateDoc(userDocRef, {
+        shopConnections: arrayUnion(newConnection),
+        shopConnectionIds: arrayUnion(verifiedShop.id) // Add to the queryable array
+    }).then(() => {
         toast({ title: 'Request Sent', description: `Your request to join ${verifiedShop.name} has been sent.` });
         setShopIdInput('');
         setVerifiedShop(null);
-    } catch(e: any) {
-        toast({ variant: 'destructive', title: 'Failed to send request', description: e.message });
-    } finally {
+    }).catch(e => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: userDocRef.path,
+            operation: 'update',
+            requestResourceData: { shopConnections: '...' }
+        }));
+    }).finally(() => {
         setIsAddingShop(false);
-    }
+    });
   };
   
   const handleRemoveShop = async (shopToRemove: ShopConnection) => {
     if (!userDocRef) return;
-     try {
-        await updateDoc(userDocRef, {
-            shopConnections: arrayRemove(shopToRemove),
-            shopConnectionIds: arrayRemove(shopToRemove.shopId) // Also remove from queryable array
-        });
+     updateDoc(userDocRef, {
+        shopConnections: arrayRemove(shopToRemove),
+        shopConnectionIds: arrayRemove(shopToRemove.shopId) // Also remove from queryable array
+    }).then(() => {
         toast({ title: 'Shop Removed', description: `You have left ${shopToRemove.shopName}.` });
-    } catch (e: any) {
-        toast({ variant: 'destructive', title: 'Failed to remove shop', description: e.message });
-    }
+    }).catch(e => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: userDocRef.path,
+            operation: 'update',
+            requestResourceData: { shopConnections: '...' }
+        }));
+    });
   };
 
 
@@ -144,18 +151,22 @@ export default function CustomerProfilePage() {
         return;
     };
     setIsSaving(true);
-    try {
-        await updateDoc(userDocRef, {
-            name: name,
-            phone: phone,
-            deliveryAddress: deliveryAddress,
-        });
+    const updatedData = {
+        name: name,
+        phone: phone,
+        deliveryAddress: deliveryAddress,
+    };
+    updateDoc(userDocRef, updatedData).then(() => {
         toast({ title: 'Profile Updated', description: 'Your information has been saved successfully.'});
-    } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Update Failed', description: error.message });
-    } finally {
+    }).catch(error => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: userDocRef.path,
+            operation: 'update',
+            requestResourceData: updatedData
+        }));
+    }).finally(() => {
         setIsSaving(false);
-    }
+    });
   };
   
   const isLoading = isUserLoading || isProfileLoading;
@@ -261,3 +272,5 @@ export default function CustomerProfilePage() {
     </div>
   );
 }
+
+    
