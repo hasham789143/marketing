@@ -8,6 +8,13 @@ service cloud.firestore {
     function isAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
+    
+    // Allow public read for global platform settings, but only admins can write.
+    match /platform_settings/{settingId} {
+        allow get: if true;
+        allow list: if true;
+        allow write: if isAdmin();
+    }
 
     // Admins can read and write all user data
     // Users can read their own data and write to their own cart
@@ -25,13 +32,6 @@ service cloud.firestore {
     match /shops/{shopId} {
       allow read: if true;
       allow write: if isAdmin();
-    }
-    
-    // Allow public read for global platform settings, but only admins can write.
-    match /platform_settings/{settingId} {
-        allow get: if true;
-        allow list: if true;
-        allow write: if isAdmin();
     }
     
     // Other rules...
