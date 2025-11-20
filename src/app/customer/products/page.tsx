@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Product, Review } from '@/lib/data';
+import { Product, Review, Banner } from '@/lib/data';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { addDoc, collection, doc, query, where, getDocs, collectionGroup, writeBatch, runTransaction, getDoc } from 'firebase/firestore';
 import { ShoppingCart } from 'lucide-react';
@@ -173,7 +173,6 @@ export default function CustomerProductsPage() {
   const [onlineShops, setOnlineShops] = useState<Shop[]>([]);
   const [onlineProducts, setOnlineProducts] = useState<Product[]>([]);
   const [connectedPhysicalProducts, setConnectedPhysicalProducts] = useState<Product[]>([]);
-  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
 
@@ -186,6 +185,10 @@ export default function CustomerProductsPage() {
   
   const platformSettingsRef = useMemoFirebase(() => doc(firestore, 'platform_settings', 'features'), [firestore]);
   const { data: platformSettings, isLoading: areSettingsLoading } = useDoc<PlatformSettings>(platformSettingsRef);
+
+  const bannersRef = useMemoFirebase(() => query(collection(firestore, 'banners'), where('isActive', '==', true)), [firestore]);
+  const { data: activeBanners, isLoading: areBannersLoading } = useCollection<Banner>(bannersRef);
+
 
   const plugin = useRef(
     Autoplay({ delay: 3000, stopOnInteraction: true })
@@ -228,61 +231,6 @@ export default function CustomerProductsPage() {
             });
             setConnectedPhysicalProducts(allPhysicalProducts);
         }
-
-        // --- Step 3: Determine Featured Product for Banner ---
-        const allProducts = [...allOnlineProducts, ...connectedPhysicalProducts];
-        let featuredProduct: Product | undefined;
-
-        if (platformSettings?.featuredProductId) {
-             const productDocRef = doc(firestore, 'products', platformSettings.featuredProductId); // Assuming products are in a top-level collection for simplicity here. Adjust if nested.
-             const productDoc = await getDoc(productDocRef);
-             if (productDoc.exists()) {
-                 featuredProduct = { id: productDoc.id, ...productDoc.data() } as Product;
-             }
-        } 
-        
-        if (!featuredProduct) {
-            // Fallback: Find the highest-rated product
-            const reviewsQuery = collectionGroup(firestore, 'reviews');
-            const reviewsSnapshot = await getDocs(reviewsQuery);
-            const reviews = reviewsSnapshot.docs.map(doc => doc.data() as Review);
-
-            if (reviews.length > 0) {
-                const productRatings: { [productId: string]: { total: number; count: number } } = {};
-                reviews.forEach(review => {
-                    if (review.targetType === 'product') {
-                        if (!productRatings[review.targetId]) {
-                            productRatings[review.targetId] = { total: 0, count: 0 };
-                        }
-                        productRatings[review.targetId].total += review.rating;
-                        productRatings[review.targetId].count++;
-                    }
-                });
-                
-                let highestAvg = 0;
-                let topProductId = '';
-                for (const productId in productRatings) {
-                    const avg = productRatings[productId].total / productRatings[productId].count;
-                    if (avg > highestAvg) {
-                        highestAvg = avg;
-                        topProductId = productId;
-                    }
-                }
-
-                if (topProductId) {
-                    featuredProduct = allProducts.find(p => p.id === topProductId);
-                }
-            }
-        }
-
-        // If still no featured product, pick a random one from online products
-        if (!featuredProduct && allOnlineProducts.length > 0) {
-            featuredProduct = allOnlineProducts[Math.floor(Math.random() * allOnlineProducts.length)];
-        }
-
-        if (featuredProduct) {
-            setFeaturedProducts([featuredProduct]);
-        }
         
       } catch (error) {
         console.error("Error fetching data: ", error);
@@ -310,7 +258,7 @@ export default function CustomerProductsPage() {
 
   return (
     <div className="w-full p-4 md:p-6 lg:p-8 space-y-8">
-       {featuredProducts.length > 0 && (
+       {activeBanners && activeBanners.length > 0 && (
          <Carousel 
             className="w-full"
             opts={{ loop: true }}
@@ -319,21 +267,21 @@ export default function CustomerProductsPage() {
             onMouseLeave={plugin.current.reset}
         >
             <CarouselContent>
-            {featuredProducts.map((product) => (
-                <CarouselItem key={product.id}>
-                    <Link href={`/customer/products/${product.id}`} className="block">
+            {activeBanners.map((banner) => (
+                <CarouselItem key={banner.id}>
+                    <Link href={banner.targetUrl} className="block">
                         <div className="relative w-full h-64 md:h-80 rounded-lg overflow-hidden group">
                             <Image
-                                src={product.images?.[0] || 'https://placehold.co/1200x400'}
-                                alt={product.name}
+                                src={banner.imageUrl}
+                                alt={banner.title}
                                 fill
                                 className="object-cover transition-transform duration-300 group-hover:scale-105"
-                                data-ai-hint="product image"
+                                data-ai-hint="promotional banner"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                             <div className="absolute bottom-0 left-0 p-6 text-white">
-                                <p className="font-semibold">{getShopName(product.shopId)}</p>
-                                <h2 className="text-3xl font-bold">{product.name}</h2>
+                                <h2 className="text-3xl font-bold">{banner.title}</h2>
+                                {banner.subtitle && <p className="text-lg">{banner.subtitle}</p>}
                             </div>
                         </div>
                     </Link>

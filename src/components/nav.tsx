@@ -24,6 +24,7 @@ import {
   List,
   BellRing,
   Globe,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
@@ -50,6 +51,7 @@ interface PlatformSettings {
 const adminNavItems = [
     { href: '/dashboard/shops', label: 'Shops', icon: Store },
     { href: '/dashboard/users', label: 'Users', icon: Users2 },
+    { href: '/dashboard/banners', label: 'Banners', icon: ImageIcon },
     { href: '/dashboard/settings/platform', label: 'Platform', icon: Globe },
 ];
 
@@ -195,3 +197,5 @@ export function Nav() {
     </SidebarMenu>
   );
 }
+
+    

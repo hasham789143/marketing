@@ -582,6 +582,20 @@
             }
         },
         "required": ["connectedShopsEnabled"]
+    },
+    "Banner": {
+        "title": "Banner",
+        "type": "object",
+        "description": "Represents a promotional banner for the customer-facing pages.",
+        "properties": {
+            "id": { "type": "string" },
+            "title": { "type": "string" },
+            "subtitle": { "type": "string" },
+            "imageUrl": { "type": "string", "format": "uri" },
+            "targetUrl": { "type": "string", "description": "The URL the banner links to." },
+            "isActive": { "type": "boolean" }
+        },
+        "required": ["id", "title", "imageUrl", "targetUrl", "isActive"]
     }
   },
   "auth": {
@@ -767,6 +781,17 @@
             "description": "Stores global settings for the platform, such as feature flags.",
             "params": [
                 { "name": "settingId", "description": "The ID of the settings document (e.g., 'features')."}
+            ]
+        }
+      },
+      {
+        "path": "/banners/{bannerId}",
+        "definition": {
+            "entityName": "Banner",
+            "schema": { "$ref": "#/backend/entities/Banner" },
+            "description": "Stores promotional banner information.",
+            "params": [
+                { "name": "bannerId", "description": "The unique identifier for the banner."}
             ]
         }
       }

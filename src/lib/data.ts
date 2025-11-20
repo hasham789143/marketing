@@ -81,6 +81,15 @@ export interface Review {
   createdAt: Timestamp | string;
 }
 
+export interface Banner {
+  id: string;
+  title: string;
+  subtitle: string;
+  imageUrl: string;
+  targetUrl: string;
+  isActive: boolean;
+}
+
 
 export const products: Product[] = [];
 
