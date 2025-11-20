@@ -3,38 +3,7 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to check for admin role
-    function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    // Allow public read for global platform settings, but only admins can write.
-    match /platform_settings/{settingId} {
-        allow get: if true;
-        allow list: if true;
-        allow write: if isAdmin();
-    }
-
-    // Admins can read and write all user data
-    // Users can read their own data and write to their own cart
-    match /users/{userId} {
-      allow read, write: if isAdmin();
-      allow get: if request.auth.uid == userId;
-
-      match /cart/{cartItemId} {
-        allow read, write, delete: if request.auth.uid == userId;
-      }
-    }
-    
-    // Shops can be read by anyone to allow Shop ID verification on sign up.
-    // Only admins can create, update, or delete shops.
-    match /shops/{shopId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
-    // Other rules...
+    // Allow read and write access to all documents for any authenticated user.
     match /{document=**} {
       allow read, write: if request.auth != null;
     }
