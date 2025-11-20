@@ -10,7 +10,8 @@ import {
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, query, where, getDocs } from 'firebase/firestore';
 import Image from 'next/image';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Order } from '@/lib/data';
 import { Separator } from '@/components/ui/separator';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -31,6 +32,10 @@ interface ShopData {
   shopName: string;
   phone: string;
   shopImageUrl: string;
+}
+
+interface PlatformSettings {
+    connectedShopsEnabled: boolean;
 }
 
 // New component to handle the logic for a single shop
@@ -132,6 +137,7 @@ function ShopDashboardCard({ shopId }: { shopId: string }) {
 export default function CustomerDashboardPage() {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
+  const router = useRouter();
 
   const userDocRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -139,15 +145,26 @@ export default function CustomerDashboardPage() {
   }, [firestore, user]);
 
   const { data: userData, isLoading: isUserDataLoading } = useDoc<UserData>(userDocRef);
+
+  const platformSettingsRef = useMemoFirebase(() => doc(firestore, 'platform_settings', 'features'), [firestore]);
+  const { data: platformSettings, isLoading: areSettingsLoading } = useDoc<PlatformSettings>(platformSettingsRef);
+
+  useEffect(() => {
+    // If settings have loaded and connected shops are disabled, redirect.
+    if (!areSettingsLoading && platformSettings?.connectedShopsEnabled === false) {
+      router.replace('/customer/products');
+    }
+  }, [platformSettings, areSettingsLoading, router]);
   
   // Find ALL active shop connections
   const activeShopConnections = useMemo(() => {
     return userData?.shopConnections?.filter(c => c.status === 'active') ?? [];
   }, [userData]);
 
-  const isLoading = isUserLoading || isUserDataLoading;
+  const isLoading = isUserLoading || isUserDataLoading || areSettingsLoading;
   
-  if (isLoading) {
+  // While loading or if redirection is imminent, show a loader.
+  if (isLoading || (!areSettingsLoading && platformSettings?.connectedShopsEnabled === false)) {
     return (
         <div className="flex justify-center items-center h-64">
             <p>Loading your dashboard...</p>
@@ -184,5 +201,3 @@ export default function CustomerDashboardPage() {
     </div>
   );
 }
-
-    
